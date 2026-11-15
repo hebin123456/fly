@@ -1,0 +1,24 @@
+{
+  "name": "fly-chess",
+  "version": "1.0.0",
+  "private": true,
+  "description": "多人网页飞行棋：平板当棋盘，手机扫码加入，摇一摇陀螺仪掷骰子",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test/game.test.js",
+    "simulate": "node test/simulate.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "qrcode": "^1.5.4",
+    "selfsigned": "^2.4.1",
+    "socket.io": "^4.7.5"
+  },
+  "devDependencies": {
+    "socket.io-client": "^4.7.5"
+  }
+}

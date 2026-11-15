@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+  <meta name="theme-color" content="#070c18" />
+  <title>飞行棋 · 手机</title>
+  <link rel="stylesheet" href="play.css" />
+</head>
+<body>
+  <div class="bg"><div class="orb orb-a"></div><div class="orb orb-b"></div></div>
+
+  <div class="phone">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 16v-2l-8-5V3.5A1.5 1.5 0 0 0 11.5 2 1.5 1.5 0 0 0 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z"/></svg>
+        </div>
+        <div class="brand-text"><h1>飞行棋</h1><p>手机手柄</p></div>
+      </div>
+      <div class="roomtag" id="roomTag">未加入</div>
+    </header>
+
+    <main>
+      <!-- 加入 -->
+      <section id="joinView" class="view">
+        <div class="join-hero">
+          <div class="hero-plane">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 16v-2l-8-5V3.5A1.5 1.5 0 0 0 11.5 2 1.5 1.5 0 0 0 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z"/></svg>
+          </div>
+          <h1>加入棋局</h1>
+          <p>扫大屏二维码，或用房间号进入</p>
+        </div>
+
+        <form id="joinForm" class="card join-form" autocomplete="off">
+          <label class="field">
+            <span>房间号</span>
+            <input id="codeInput" inputmode="text" maxlength="4" placeholder="ABCD" spellcheck="false" autocapitalize="characters" />
+          </label>
+          <label class="field">
+            <span>你的昵称</span>
+            <input id="nameInput" maxlength="12" placeholder="例如：小飞" />
+          </label>
+          <button class="btn-primary" id="joinBtn" type="submit">进入房间</button>
+          <p class="form-err" id="joinErr"></p>
+        </form>
+
+        <p class="tip">同屋的平板打开棋盘大屏，手机扫码即可入座，最多 4 人。</p>
+      </section>
+
+      <!-- 游戏 -->
+      <section id="gameView" class="view hidden">
+        <div class="me-bar">
+          <span class="me-dot" id="meDot"></span>
+          <div class="me-info">
+            <b id="meName">--</b>
+            <span id="meColor">--</span>
+          </div>
+          <button class="chip" id="gyroBtn" type="button">开启陀螺仪</button>
+        </div>
+
+        <div class="status" id="statusCard">
+          <div class="status-title" id="statusTitle">等待开局</div>
+          <div class="status-sub" id="statusSub">大屏点“开始游戏”后开始</div>
+        </div>
+
+        <div class="play-area" id="playArea">
+          <button class="die-face big" id="dieBtn" data-face="1" aria-label="掷骰子">
+            <span class="pip"></span><span class="pip"></span><span class="pip"></span>
+            <span class="pip"></span><span class="pip"></span><span class="pip"></span>
+            <span class="pip"></span><span class="pip"></span><span class="pip"></span>
+          </button>
+          <div class="hint" id="hintText">摇一摇手机</div>
+          <button class="btn-roll" id="rollBtn" type="button">掷骰子</button>
+        </div>
+
+        <div class="options hidden" id="options">
+          <div class="options-head" id="optionsHead">选择要移动的飞机</div>
+          <div class="options-list" id="optionsList"></div>
+        </div>
+
+        <div class="card my-planes" id="planesCard">
+          <div class="section-head"><h2>我的飞机</h2><span id="planesMeta">0 / 4 抵达</span></div>
+          <div class="planes-list" id="planesList"></div>
+        </div>
+
+        <div class="card mini-players" id="playersCard">
+          <div class="section-head"><h2>本局玩家</h2></div>
+          <div id="playersMini"></div>
+        </div>
+      </section>
+
+      <!-- 结算 -->
+      <section id="winnerView" class="view hidden">
+        <div class="winner-box">
+          <div class="winner-star">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.9 6.26L21.5 9.3l-4.75 4.4 1.2 6.55L12 17.1l-5.95 3.15 1.2-6.55L2.5 9.3l6.6-1.04z"/></svg>
+          </div>
+          <h1 id="winnerTitle">红队获胜</h1>
+          <p id="winnerSub">四架飞机全部抵达终点</p>
+          <div class="winner-note">等大屏点「再来一局」</div>
+        </div>
+      </section>
+    </main>
+
+    <div class="toast" id="toast"></div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="shared.js"></script>
+  <script src="play.js"></script>
+</body>
+</html>

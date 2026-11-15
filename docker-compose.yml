@@ -1,0 +1,12 @@
+services:
+  fly-chess:
+    image: ${IMAGE:-ghcr.io/hebin123456/fly-chess:latest}
+    build: .
+    container_name: fly-chess
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-3000}:3000"
+      - "${HTTPS_PORT:-3443}:3443"
+    environment:
+      ENABLE_HTTPS: "${ENABLE_HTTPS:-1}"
+      PUBLIC_URL: "${PUBLIC_URL:-}"
