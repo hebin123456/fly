@@ -33,6 +33,14 @@ const optionsEl = $('options');
 const optionsHead = $('optionsHead');
 const optionsList = $('optionsList');
 const planesCard = $('planesCard');
+const scanOverlay = $('scanOverlay');
+const scanVideo = $('scanVideo');
+const scanCanvas = $('scanCanvas');
+
+let scanStream = null;
+let scanRAF = 0;
+let scanActive = false;
+let scanLastAt = 0;
 
 /* ------------------------------------------------------------------ */
 /* 基础工具                                                           */
@@ -568,6 +576,109 @@ function showJoinScreen() {
 }
 
 /* ------------------------------------------------------------------ */
+/* 扫一扫                                                             */
+/* ------------------------------------------------------------------ */
+
+function parseRoomFromText(text) {
+  const raw = String(text || '').trim();
+  if (!raw) return '';
+  try {
+    const url = new URL(raw, location.origin);
+    const code = normalizeCode(url.searchParams.get('room') || '');
+    if (code.length === 4) return code;
+  } catch {
+    /* 不是 URL，继续按纯文本解析 */
+  }
+  const match = raw.toUpperCase().match(/[A-Z0-9]{4}/);
+  return match ? match[0] : '';
+}
+
+async function startScan() {
+  if (scanActive) return;
+  if (!window.isSecureContext) {
+    toast('扫码需要 HTTPS，请用 https://fly.hebin.me 打开');
+    return;
+  }
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    toast('当前浏览器不支持调用摄像头');
+    return;
+  }
+  if (typeof jsQR !== 'function') {
+    toast('扫码组件加载失败，请刷新页面');
+    return;
+  }
+  try {
+    scanStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment' },
+      audio: false,
+    });
+  } catch {
+    toast('无法打开摄像头，请检查浏览器权限');
+    return;
+  }
+
+  scanVideo.srcObject = scanStream;
+  scanOverlay.classList.remove('hidden');
+  scanActive = true;
+  scanLastAt = 0;
+  try {
+    await scanVideo.play();
+  } catch {
+    /* 部分浏览器需要用户再次点击，忽略即可 */
+  }
+  scanRAF = requestAnimationFrame(scanTick);
+}
+
+function stopScan() {
+  scanActive = false;
+  if (scanRAF) cancelAnimationFrame(scanRAF);
+  scanRAF = 0;
+  if (scanStream) scanStream.getTracks().forEach((track) => track.stop());
+  scanStream = null;
+  scanVideo.srcObject = null;
+  scanOverlay.classList.add('hidden');
+}
+
+function scanTick() {
+  if (!scanActive) return;
+  const now = Date.now();
+  if (now - scanLastAt > 120 && scanVideo.readyState >= 2 && scanVideo.videoWidth) {
+    scanLastAt = now;
+    const vw = scanVideo.videoWidth;
+    const vh = scanVideo.videoHeight;
+    const scale = Math.min(1, 640 / vw);
+    const w = Math.round(vw * scale);
+    const h = Math.round(vh * scale);
+    if (scanCanvas.width !== w || scanCanvas.height !== h) {
+      scanCanvas.width = w;
+      scanCanvas.height = h;
+    }
+    const ctx = scanCanvas.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(scanVideo, 0, 0, w, h);
+    const image = ctx.getImageData(0, 0, w, h);
+    const result = jsQR(image.data, w, h, { inversionAttempts: 'dontInvert' });
+    if (result && result.data) {
+      const code = parseRoomFromText(result.data);
+      if (code) {
+        stopScan();
+        codeInput.value = code;
+        vibrate(30);
+        const name = (nameInput.value || store.get('flychess:name') || '').trim();
+        if (!name) {
+          toast('已识别房间号，填个昵称就能加入');
+          nameInput.focus();
+          return;
+        }
+        nameInput.value = name;
+        join();
+        return;
+      }
+    }
+  }
+  scanRAF = requestAnimationFrame(scanTick);
+}
+
+/* ------------------------------------------------------------------ */
 /* 初始化与事件                                                       */
 /* ------------------------------------------------------------------ */
 
@@ -615,6 +726,19 @@ rollBtn.addEventListener('click', () => {
 
 $('gyroBtn').addEventListener('click', () => {
   enableGyro();
+});
+
+$('scanBtn').addEventListener('click', () => {
+  startScan();
+});
+$('scanClose').addEventListener('click', () => {
+  stopScan();
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) stopScan();
+});
+window.addEventListener('pagehide', () => {
+  stopScan();
 });
 
 optionsList.addEventListener('click', (e) => {

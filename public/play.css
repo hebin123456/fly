@@ -132,6 +132,128 @@ main { flex: 1; display: flex; flex-direction: column; }
 .form-err { min-height: 16px; margin: 0; font-size: 12px; color: #fca5a5; text-align: center; letter-spacing: 0.4px; }
 .tip { margin: 4px 6px 0; font-size: 11px; line-height: 1.7; color: #61718d; text-align: center; letter-spacing: 0.3px; }
 
+/* 扫一扫 */
+.btn-scan {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 15px;
+  border-radius: 14px;
+  border: 1px solid rgba(103, 232, 249, 0.32);
+  background: linear-gradient(135deg, rgba(103, 232, 249, 0.14), rgba(59, 130, 246, 0.1));
+  color: #bff3ff;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  cursor: pointer;
+  transition: 0.18s;
+  box-shadow: 0 10px 26px rgba(34, 211, 238, 0.12);
+}
+.btn-scan:active { transform: scale(0.985); }
+.btn-scan svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+.or-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #5b6b86;
+  font-size: 10.5px;
+  letter-spacing: 1px;
+}
+.or-divider::before,
+.or-divider::after {
+  content: "";
+  height: 1px;
+  flex: 1;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.scan-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  padding: calc(16px + env(safe-area-inset-top)) 18px calc(24px + env(safe-area-inset-bottom));
+  background: #040812;
+}
+.scan-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #e8eefc;
+  font-size: 14px;
+  letter-spacing: 1px;
+}
+.scan-close {
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 12px;
+}
+.scan-view {
+  position: relative;
+  flex: 1;
+  margin: 18px 0;
+  border-radius: 22px;
+  overflow: hidden;
+  background: #000;
+  display: grid;
+  place-items: center;
+}
+#scanVideo { width: 100%; height: 100%; object-fit: cover; }
+.scan-frame {
+  position: absolute;
+  width: min(64vw, 260px);
+  aspect-ratio: 1 / 1;
+  border: 1px solid rgba(103, 232, 249, 0.35);
+  border-radius: 18px;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.42);
+}
+.scan-frame i {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border: 3px solid #67e8f9;
+}
+.scan-frame i:nth-child(1) { left: -2px; top: -2px; border-right: 0; border-bottom: 0; border-radius: 8px 0 0 0; }
+.scan-frame i:nth-child(2) { right: -2px; top: -2px; border-left: 0; border-bottom: 0; border-radius: 0 8px 0 0; }
+.scan-frame i:nth-child(3) { left: -2px; bottom: -2px; border-right: 0; border-top: 0; border-radius: 0 0 0 8px; }
+.scan-frame i:nth-child(4) { right: -2px; bottom: -2px; border-left: 0; border-top: 0; border-radius: 0 0 8px 0; }
+.scan-frame::after {
+  content: "";
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #67e8f9, transparent);
+  box-shadow: 0 0 12px rgba(103, 232, 249, 0.8);
+  animation: scan-line 2.2s ease-in-out infinite;
+}
+@keyframes scan-line {
+  0%, 100% { top: 10%; }
+  50% { top: 88%; }
+}
+.scan-tip {
+  margin: 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.5px;
+}
+
 /* 玩家条 */
 .me-bar {
   display: flex;

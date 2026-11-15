@@ -1,12 +1,14 @@
 services:
   fly-chess:
-    image: ${IMAGE:-ghcr.io/hebin123456/fly-chess:latest}
-    build: .
+    image: ghcr.io/hebin123456/fly-chess:latest
     container_name: fly-chess
     restart: unless-stopped
     ports:
-      - "${HTTP_PORT:-3000}:3000"
-      - "${HTTPS_PORT:-3443}:3443"
+      # 本地访问 http://192.168.188.102:10005
+      # 若 Cloudflare Tunnel 与容器在同一台机器，可改成 "127.0.0.1:10005:3000" 更安全
+      - "10005:3000"
     environment:
-      ENABLE_HTTPS: "${ENABLE_HTTPS:-1}"
-      PUBLIC_URL: "${PUBLIC_URL:-}"
+      # 由外层 Nginx/Caddy 负责 HTTPS，容器内只跑 HTTP
+      ENABLE_HTTPS: "0"
+      # 二维码与手机加入链接使用这个地址
+      PUBLIC_URL: "https://fly.hebin.me"

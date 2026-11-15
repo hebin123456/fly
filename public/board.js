@@ -14,7 +14,7 @@ const RING = FlyChess.RING;
 const HOME = FlyChess.HOME;
 const BASE_SLOTS = FlyChess.BASE_SLOTS;
 const GOAL_T = FlyChess.GOAL_T;
-const TRACK_LAST = FlyChess.TRACK_LAST;
+const GRID = 14;
 
 const PLANE_PATH =
   'M21 16v-2l-8-5V3.5A1.5 1.5 0 0 0 11.5 2 1.5 1.5 0 0 0 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z';
@@ -31,6 +31,7 @@ let logLastId = 0;
 let startPending = false;
 
 const tokens = new Map();
+let goalBadges = [];
 
 const $ = (id) => document.getElementById(id);
 const boardEl = $('board');
@@ -82,56 +83,64 @@ function setConn(online) {
 
 function drawBoard() {
   const svg = $('boardSvg');
+  svg.setAttribute('viewBox', '0 0 14 14');
 
   // 底板
   svg.appendChild(
-    svgEl('rect', { x: 0, y: 0, width: 15, height: 15, rx: 0.55, fill: '#fbf7ec' })
+    svgEl('rect', { x: 0, y: 0, width: 14, height: 14, rx: 0.5, fill: '#fbf7ec' })
   );
 
-  // 四个基地
-  const baseOrigin = [[0, 0], [0, 9], [9, 9], [9, 0]];
+  // 四角机库（5×5）
+  const baseOrigin = [[1, 1], [1, 8], [8, 8], [8, 1]];
   for (let seat = 0; seat < 4; seat += 1) {
-    const [bx, by] = baseOrigin[seat];
+    const [br, bc] = baseOrigin[seat];
     svg.appendChild(
       svgEl('rect', {
-        x: bx + 0.16,
-        y: by + 0.16,
-        width: 5.68,
-        height: 5.68,
-        rx: 1.1,
+        x: bc + 0.1,
+        y: br + 0.1,
+        width: 4.8,
+        height: 4.8,
+        rx: 0.92,
         fill: SEAT_LIGHT[seat],
-        'fill-opacity': 0.72,
+        'fill-opacity': 0.85,
         stroke: SEAT_COLORS[seat],
-        'stroke-opacity': 0.34,
+        'stroke-opacity': 0.42,
         'stroke-width': 0.06,
       })
     );
     svg.appendChild(
       svgEl('rect', {
-        x: bx + 0.62,
-        y: by + 0.62,
-        width: 4.76,
-        height: 4.76,
-        rx: 0.72,
+        x: bc + 0.46,
+        y: br + 0.46,
+        width: 4.08,
+        height: 4.08,
+        rx: 0.66,
         fill: '#fffdf8',
-        'fill-opacity': 0.78,
+        'fill-opacity': 0.88,
         stroke: SEAT_COLORS[seat],
         'stroke-opacity': 0.16,
-        'stroke-width': 0.045,
+        'stroke-width': 0.04,
       })
     );
+    const watermark = svgEl('g', {
+      transform: `translate(${bc + 2.5 - 0.66} ${br + 2.5 - 0.66}) scale(0.055)`,
+      fill: SEAT_COLORS[seat],
+      'fill-opacity': 0.13,
+    });
+    watermark.appendChild(svgEl('path', { d: PLANE_PATH }));
+    svg.appendChild(watermark);
     BASE_SLOTS[seat].forEach(([r, c]) => {
       svg.appendChild(
         svgEl('circle', {
           cx: c,
           cy: r,
-          r: 0.5,
+          r: 0.42,
           fill: '#fff',
-          'fill-opacity': 0.85,
+          'fill-opacity': 0.9,
           stroke: SEAT_COLORS[seat],
-          'stroke-opacity': 0.55,
-          'stroke-width': 0.055,
-          'stroke-dasharray': '0.11 0.09',
+          'stroke-opacity': 0.52,
+          'stroke-width': 0.05,
+          'stroke-dasharray': '0.1 0.08',
         })
       );
     });
@@ -142,45 +151,45 @@ function drawBoard() {
     HOME[seat].forEach(([r, c]) => {
       svg.appendChild(
         svgEl('rect', {
-          x: c + 0.08,
-          y: r + 0.08,
-          width: 0.84,
-          height: 0.84,
+          x: c + 0.07,
+          y: r + 0.07,
+          width: 0.86,
+          height: 0.86,
           rx: 0.18,
           fill: SEAT_COLORS[seat],
-          'fill-opacity': 0.9,
+          'fill-opacity': 0.95,
           stroke: '#ffffff',
-          'stroke-opacity': 0.85,
-          'stroke-width': 0.04,
+          'stroke-opacity': 0.9,
+          'stroke-width': 0.045,
         })
       );
     });
   }
 
-  // 环形主航道
+  // 外圈 52 格主航道
   RING.forEach(([r, c], idx) => {
     const seat = idx % 4;
     const fly = idx % 13 === 5 || idx % 13 === 11;
     const isStart = idx % 13 === 0;
     svg.appendChild(
       svgEl('rect', {
-        x: c + 0.075,
-        y: r + 0.075,
-        width: 0.85,
-        height: 0.85,
-        rx: 0.2,
-        fill: fly ? SEAT_COLORS[seat] : SEAT_LIGHT[seat],
-        'fill-opacity': fly ? 0.95 : 0.9,
+        x: c + 0.06,
+        y: r + 0.06,
+        width: 0.88,
+        height: 0.88,
+        rx: 0.18,
+        fill: SEAT_COLORS[seat],
+        'fill-opacity': fly ? 1 : 0.86,
         stroke: '#ffffff',
         'stroke-opacity': 0.95,
-        'stroke-width': 0.04,
+        'stroke-width': 0.045,
       })
     );
     if (fly) {
       const g = svgEl('g', {
-        transform: `translate(${c + 0.24} ${r + 0.26}) scale(0.0215)`,
+        transform: `translate(${c + 0.225} ${r + 0.245}) scale(0.022)`,
         fill: '#ffffff',
-        'fill-opacity': 0.9,
+        'fill-opacity': 0.92,
       });
       g.appendChild(svgEl('path', { d: PLANE_PATH }));
       svg.appendChild(g);
@@ -194,49 +203,88 @@ function drawBoard() {
           fill: 'none',
           stroke: '#ffffff',
           'stroke-opacity': 0.95,
-          'stroke-width': 0.06,
+          'stroke-width': 0.07,
         })
       );
     }
   });
 
-  // 中央终点
+  // 飞行捷径虚线（每队一条，飞 12 格）
+  [11, 24, 37, 50].forEach((idx) => {
+    const seat = idx % 4;
+    const [r1, c1] = RING[idx];
+    const [r2, c2] = RING[(idx + 12) % RING.length];
+    const x1 = c1 + 0.5;
+    const y1 = r1 + 0.5;
+    const x2 = c2 + 0.5;
+    const y2 = r2 + 0.5;
+    const mx = (x1 + x2) / 2;
+    const my = (y1 + y2) / 2;
+    const cx = mx + (7 - mx) * 0.32;
+    const cy = my + (7 - my) * 0.32;
+    svg.appendChild(
+      svgEl('path', {
+        d: `M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}`,
+        fill: 'none',
+        stroke: SEAT_COLORS[seat],
+        'stroke-opacity': 0.38,
+        'stroke-width': 0.06,
+        'stroke-dasharray': '0.15 0.13',
+        'stroke-linecap': 'round',
+      })
+    );
+  });
+
+  // 中央终点（2×2 四色风车）
   svg.appendChild(
-    svgEl('rect', {
-      x: 6.02,
-      y: 6.02,
-      width: 2.96,
-      height: 2.96,
-      rx: 0.3,
-      fill: '#0b1220',
-    })
+    svgEl('rect', { x: 6.04, y: 6.04, width: 1.92, height: 1.92, rx: 0.16, fill: '#0b1220' })
   );
   const center = [
-    { pts: '6,6 9,6 7.5,7.5', seat: 0 },
-    { pts: '6,6 6,9 7.5,7.5', seat: 1 },
-    { pts: '6,9 9,9 7.5,7.5', seat: 2 },
-    { pts: '9,6 9,9 7.5,7.5', seat: 3 },
+    { pts: '6,6 8,6 7,7', seat: 0 },
+    { pts: '6,6 6,8 7,7', seat: 1 },
+    { pts: '6,8 8,8 7,7', seat: 2 },
+    { pts: '8,6 8,8 7,7', seat: 3 },
   ];
   center.forEach(({ pts, seat }) => {
     svg.appendChild(
       svgEl('polygon', {
         points: pts,
         fill: SEAT_COLORS[seat],
-        'fill-opacity': 0.82,
+        'fill-opacity': 0.95,
         stroke: '#0b1220',
-        'stroke-width': 0.05,
+        'stroke-width': 0.035,
       })
     );
   });
-  svg.appendChild(
-    svgEl('circle', {
-      cx: 7.5,
-      cy: 7.5,
-      r: 0.3,
-      fill: '#fffdf8',
-      'fill-opacity': 0.92,
-    })
-  );
+
+  // 终点计数徽标
+  goalBadges = [[7, 6.46], [6.46, 7], [7, 7.54], [7.54, 7]].map(([r, c], seat) => {
+    const g = svgEl('g', { opacity: 0, 'pointer-events': 'none' });
+    g.appendChild(
+      svgEl('circle', {
+        cx: c,
+        cy: r,
+        r: 0.245,
+        fill: SEAT_COLORS[seat],
+        stroke: '#fffdf8',
+        'stroke-width': 0.045,
+      })
+    );
+    const text = svgEl('text', {
+      x: c,
+      y: r + 0.008,
+      fill: '#fff',
+      'font-size': 0.29,
+      'font-weight': '700',
+      'text-anchor': 'middle',
+      'dominant-baseline': 'central',
+      'font-family': 'system-ui, -apple-system, sans-serif',
+    });
+    text.textContent = '0';
+    g.appendChild(text);
+    svg.appendChild(g);
+    return { g, text };
+  });
 }
 
 /* ------------------------------------------------------------------ */
@@ -259,6 +307,7 @@ function renderTokens() {
   const items = [];
   state.players.forEach((p) => {
     (state.planes[p.seat] || []).forEach((t, plane) => {
+      if (t === GOAL_T) return; // 终点用计数徽标展示
       const [r, c] = planeCoord(p.seat, plane, t);
       items.push({ seat: p.seat, plane, t, r, c });
     });
@@ -284,7 +333,6 @@ function renderTokens() {
         c += Math.cos(angle) * 0.17;
         scale = 0.8;
       }
-      if (it.t === GOAL_T) scale *= 0.74;
 
       const key = `${it.seat}-${it.plane}`;
       seen.add(key);
@@ -294,13 +342,12 @@ function renderTokens() {
         tokens.set(key, el);
         planesEl.appendChild(el);
       }
-      el.style.left = `${(c / 15) * 100}%`;
-      el.style.top = `${(r / 15) * 100}%`;
+      el.style.left = `${(c / GRID) * 100}%`;
+      el.style.top = `${(r / GRID) * 100}%`;
       el.style.setProperty('--s', scale.toFixed(3));
-      el.classList.toggle('goal', it.t === GOAL_T);
-      const active = state.phase === 'playing' && it.seat === state.turn && it.t < GOAL_T;
+      const active = state.phase === 'playing' && it.seat === state.turn;
       el.classList.toggle('active', active);
-      el.style.zIndex = String(it.t === GOAL_T ? 4 : 6 + (n > 1 ? 1 : 0));
+      el.style.zIndex = String(6 + (n > 1 ? 1 : 0));
     });
   });
 
@@ -309,6 +356,18 @@ function renderTokens() {
       el.remove();
       tokens.delete(key);
     }
+  });
+
+  renderGoalCounts();
+}
+
+function renderGoalCounts() {
+  if (!state) return;
+  goalBadges.forEach((badge, seat) => {
+    const p = state.players.find((x) => x.seat === seat);
+    const count = p ? (state.planes[seat] || []).filter((t) => t === GOAL_T).length : 0;
+    badge.g.setAttribute('opacity', count > 0 ? '1' : '0');
+    badge.text.textContent = String(count);
   });
 }
 

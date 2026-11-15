@@ -32,6 +32,14 @@
           <p>扫大屏二维码，或用房间号进入</p>
         </div>
 
+        <button class="btn-scan" id="scanBtn" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M3 9V5a2 2 0 0 1 2-2h4M21 9V5a2 2 0 0 0-2-2h-4M3 15v4a2 2 0 0 0 2 2h4M21 15v4a2 2 0 0 1-2 2h-4" />
+          </svg>
+          扫一扫大屏二维码
+        </button>
+        <div class="or-divider"><span>或手动输入房间号</span></div>
+
         <form id="joinForm" class="card join-form" autocomplete="off">
           <label class="field">
             <span>房间号</span>
@@ -106,8 +114,24 @@
     <div class="toast" id="toast"></div>
   </div>
 
+  <div class="scan-overlay hidden" id="scanOverlay">
+    <div class="scan-head">
+      <span>扫一扫大屏二维码</span>
+      <button class="scan-close" id="scanClose" type="button">关闭</button>
+    </div>
+    <div class="scan-view">
+      <video id="scanVideo" playsinline muted></video>
+      <div class="scan-frame">
+        <i></i><i></i><i></i><i></i>
+      </div>
+    </div>
+    <p class="scan-tip">把大屏上的二维码放进框内，会自动识别</p>
+    <canvas id="scanCanvas" class="hidden"></canvas>
+  </div>
+
   <script src="/socket.io/socket.io.js"></script>
   <script src="shared.js"></script>
+  <script src="vendor/jsQR.js"></script>
   <script src="play.js"></script>
 </body>
 </html>

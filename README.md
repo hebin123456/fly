@@ -2,9 +2,9 @@
 
 平板/电视当棋盘，4 台手机扫码入座，**摇一摇手机（陀螺仪）掷骰子**，支持实时同步、掉线托管与再来一局。
 
-- 大屏：`/` 展示 15×15 棋盘、二维码、玩家与对局动态
-- 手机：`/play?room=XXXX` 加入房间、摇一摇/点骰子、选择飞机
-- 技术栈：Node 20 + Express + Socket.IO + qrcode，纯原生前端，无外部 CDN
+- 大屏：`/` 展示 14×14 传统棋盘（外圈 52 格、四角机库、归航跑道）、二维码、玩家与对局动态
+- 手机：`/play?room=XXXX` 扫一扫/输入房间号加入、摇一摇/点骰子、选择飞机
+- 技术栈：Node 20 + Express + Socket.IO + qrcode，纯原生前端，无外部 CDN；扫码使用 jsQR（Apache-2.0）
 - Docker 镜像内置 HTTP(3000) 与 HTTPS(3443，自签证书) 双栈
 - 已发布镜像：`ghcr.io/hebin123456/fly-chess:latest`
 
@@ -12,31 +12,76 @@
 
 ```bash
 docker run -d --name fly-chess --restart unless-stopped \
-  -p 3000:3000 -p 3443:3443 \
+  -p 3443:3443 \
   ghcr.io/hebin123456/fly-chess:latest
 ```
 
 或使用 compose：
 
 ```bash
-docker compose pull && docker compose up -d    # 使用已发布镜像
-docker compose up -d --build                   # 或从源码重新构建
+docker compose up -d    # 自动拉取已发布镜像，仅暴露 HTTPS 3443
 ```
 
+从源码构建镜像请参考 [镜像构建与推送（GHCR）](#镜像构建与推送ghcr)。
+
 1. 平板和手机连同一个 Wi-Fi。
-2. 平板浏览器打开 `http://<电脑局域网IP>:3000`（用局域网 IP 打开，二维码会自动带上这个地址）。
-3. 手机扫大屏上的二维码，输入昵称入座；至少 2 人后，大屏点「开始游戏」。
+2. 平板浏览器打开 `https://<电脑局域网IP>:3443`（首次提示自签证书风险，选择继续访问；二维码会自动带上这个地址）。
+3. 手机扫大屏上的二维码（也可以直接点手机加入页的「扫一扫大屏二维码」调用相机），输入昵称入座；至少 2 人后，大屏点「开始游戏」。
 4. 轮到你时摇一摇手机（或点骰子）掷出点数，再点选要移动的飞机。
 
 ## 手机陀螺仪与 HTTPS
 
-浏览器只在**安全上下文（HTTPS）**下开放运动传感器：
+浏览器只在**安全上下文（HTTPS）**下开放运动传感器，所以默认只用 HTTPS：
 
-- 大屏改用 `https://<局域网IP>:3443` 打开，证书提示选「继续访问」，再让手机扫码（手机也需接受一次自签证书）。
+- 大屏用 `https://<局域网IP>:3443` 打开，证书提示选「继续访问」（手机也需接受一次自签证书），手机即可摇一摇。
 - 想用可信证书：在容器前挂 Caddy/Nginx 做 HTTPS 反代，并设置 `ENABLE_HTTPS=0`。
 - 不开陀螺仪也能完整游玩：直接点骰子掷出点数。
 
 iOS 首次点击「开启陀螺仪」时，系统会询问「运动与方向」权限，允许即可。
+
+### 使用域名和可信证书
+
+已有 Nginx/Caddy 等 HTTPS 反代时，容器只需跑 HTTP，把域名反代到宿主机的 `10005` 即可：
+
+```yaml
+ports:
+  - "10005:3000"
+environment:
+  ENABLE_HTTPS: "0"
+  PUBLIC_URL: "https://fly.hebin.me"
+```
+
+反代需要支持 WebSocket 升级（`/socket.io`）。Nginx 示例：
+
+```nginx
+location / {
+    proxy_pass http://127.0.0.1:10005;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+```
+
+Caddy 只需一行：`reverse_proxy 127.0.0.1:10005`（自带 WebSocket 和自动 HTTPS）。
+
+### Cloudflare Tunnel
+
+用 Cloudflare Tunnel 时同样让容器跑 HTTP：
+
+- `ENABLE_HTTPS: "0"`，`PUBLIC_URL: "https://fly.hebin.me"`
+- Tunnel 的 ingress 指向 `http://192.168.188.102:10005`（或 cloudflared 同机时用 `http://localhost:10005`）
+- Cloudflare 侧自动提供 HTTPS 与 WebSocket，无需额外配置；如果开了 Cloudflare Access，记得放行玩家访问
+
+cloudflared 配置示例：
+
+```yaml
+ingress:
+  - hostname: fly.hebin.me
+    service: http://192.168.188.102:10005
+  - service: http_status:404
+```
 
 ## 环境变量
 
@@ -49,7 +94,7 @@ iOS 首次点击「开启陀螺仪」时，系统会询问「运动与方向」�
 
 ## 镜像构建与推送（GHCR）
 
-已发布地址：`ghcr.io/hebin123456/fly-chess`，标签 `latest` 与 `1.0.0`，已设为 **public**，可直接匿名拉取：
+已发布地址：`ghcr.io/hebin123456/fly-chess`，标签 `latest` 与 `1.1.0`，已设为 **public**，可直接匿名拉取：
 
 ```bash
 docker pull ghcr.io/hebin123456/fly-chess:latest
