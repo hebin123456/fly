@@ -11,9 +11,6 @@
 ## 快速开始
 
 ```bash
-# 若镜像是 private，先登录一次
-# docker login ghcr.io -u hebin123456
-
 docker run -d --name fly-chess --restart unless-stopped \
   -p 3000:3000 -p 3443:3443 \
   ghcr.io/hebin123456/fly-chess:latest
@@ -52,13 +49,16 @@ iOS 首次点击「开启陀螺仪」时，系统会询问「运动与方向」�
 
 ## 镜像构建与推送（GHCR）
 
-已发布地址：`ghcr.io/hebin123456/fly-chess`，标签 `latest` 与 `1.0.0`。
+已发布地址：`ghcr.io/hebin123456/fly-chess`，标签 `latest` 与 `1.0.0`，已设为 **public**，可直接匿名拉取：
 
 ```bash
-# 登录（密码使用带 write:packages 权限的 GitHub Token）
+docker pull ghcr.io/hebin123456/fly-chess:latest
+```
+
+```bash
+# 重新构建并推送（密码使用带 write:packages 权限的 GitHub Token）
 docker login ghcr.io -u hebin123456
 
-# 构建并推送
 docker build -t ghcr.io/hebin123456/fly-chess:latest .
 docker push ghcr.io/hebin123456/fly-chess:latest
 
@@ -71,7 +71,7 @@ docker build --build-arg NODE_IMAGE=docker.m.daocloud.io/library/node:20-alpine 
 NODE_IMAGE=docker.m.daocloud.io/library/node:20-alpine ./deploy.sh
 ```
 
-GHCR 新包默认是 private：自己用 `docker login ghcr.io` 即可拉取；要让别人免登录拉取，需在
+如果之后重新创建包，GHCR 默认仍是 private，需要在
 [Package settings](https://github.com/users/hebin123456/packages/container/package/fly-chess/settings)
 的 Danger Zone 里把 visibility 改成 Public。
 
