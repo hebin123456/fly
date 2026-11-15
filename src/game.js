@@ -10,43 +10,63 @@
  *   56        终点
  */
 
-const COLORS = ['red', 'yellow', 'blue', 'green'];
+const COLORS = ['yellow', 'blue', 'red', 'green'];
 const COLOR_NAMES = { red: '红队', yellow: '黄队', blue: '蓝队', green: '绿队' };
 const COLOR_HEX = { red: '#ef4444', yellow: '#f59e0b', blue: '#3b82f6', green: '#22c55e' };
 
-// 传统飞行棋外圈：52 格，14×14 棋盘最外环，从红队起飞格 (4,0) 顺时针
+// 复刻 netmanfisher/chinese-ludo 的 600×600 棋盘路线（MIT）
 const RING = [
-  [4, 0], [3, 0], [2, 0], [1, 0], [0, 0],
-  [0, 1], [0, 2], [0, 3], [0, 4], [0, 5], [0, 6], [0, 7], [0, 8],
-  [0, 9], [0, 10], [0, 11], [0, 12], [0, 13],
-  [1, 13], [2, 13], [3, 13], [4, 13], [5, 13], [6, 13], [7, 13], [8, 13],
-  [9, 13], [10, 13], [11, 13], [12, 13], [13, 13],
-  [13, 12], [13, 11], [13, 10], [13, 9], [13, 8], [13, 7], [13, 6], [13, 5],
-  [13, 4], [13, 3], [13, 2], [13, 1], [13, 0],
-  [12, 0], [11, 0], [10, 0], [9, 0], [8, 0], [7, 0], [6, 0], [5, 0],
+  [212, 91], [198, 122], [198, 151], [212, 183], [184, 209],
+  [150, 195], [120, 196], [86, 209], [74, 241], [74, 270],
+  [75, 300], [75, 330], [74, 358], [86, 390], [119, 404],
+  [150, 404], [184, 390], [212, 416], [198, 448], [198, 477],
+  [212, 508], [244, 519], [276, 518], [307, 520], [336, 519],
+  [366, 519], [399, 508], [413, 477], [413, 447], [400, 416],
+  [428, 391], [461, 405], [491, 404], [526, 390], [536, 358],
+  [537, 328], [537, 299], [537, 270], [536, 239], [526, 210],
+  [491, 195], [460, 196], [427, 210], [398, 182], [413, 151],
+  [413, 122], [399, 90], [366, 81], [335, 79], [305, 80],
+  [275, 80], [245, 82],
 ];
 
-// 每队归航跑道（5 格），从外圈通向中心
+// 每队 5 格归航跑道（主航道入口之后的 5 格）
 const HOME = [
-  [[6, 1], [6, 2], [6, 3], [6, 4], [6, 5]],
-  [[1, 7], [2, 7], [3, 7], [4, 7], [5, 7]],
-  [[7, 12], [7, 11], [7, 10], [7, 9], [7, 8]],
-  [[12, 6], [11, 6], [10, 6], [9, 6], [8, 6]],
+  [[305, 123], [305, 152], [305, 181], [305, 211], [305, 240]],
+  [[118, 300], [150, 300], [181, 300], [211, 300], [242, 300]],
+  [[305, 477], [305, 448], [305, 418], [306, 389], [306, 359]],
+  [[492, 300], [461, 299], [430, 300], [399, 299], [369, 299]],
 ];
 
-// 机库里 4 个停机位的棋盘坐标（行、列，单位：格）
+// 四角机库里的 4 个停机位
 const BASE_SLOTS = [
-  [[1.85, 1.85], [1.85, 4.15], [4.15, 1.85], [4.15, 4.15]],
-  [[1.85, 8.85], [1.85, 11.15], [4.15, 8.85], [4.15, 11.15]],
-  [[8.85, 8.85], [8.85, 11.15], [11.15, 8.85], [11.15, 11.15]],
-  [[8.85, 1.85], [8.85, 4.15], [11.15, 1.85], [11.15, 4.15]],
+  [[45, 44], [45, 100], [98, 45], [96, 98]],
+  [[44, 500], [45, 553], [98, 500], [99, 555]],
+  [[501, 501], [503, 555], [554, 501], [554, 554]],
+  [[501, 45], [501, 97], [554, 44], [554, 98]],
 ];
 
-// 终点区域 4 个位置的偏移（中心 2×2）
-const GOAL_SLOTS = [[-0.2, -0.2], [-0.2, 0.2], [0.2, -0.2], [0.2, 0.2]];
+// 中心终点
+const GOAL_CENTER = [[306, 274], [278, 300], [306, 325], [333, 300]];
 
-const TRACK_LAST = 50;
-const GOAL_T = 56;
+// 特殊天气格（按环形下标）
+const TYPHOON_CELLS = [6, 19, 32, 45];
+const LIGHTNING_CELLS = [10, 23, 36, 49];
+
+// 各队飞行捷径触发格（+12）
+const FLY_TRIGGERS = [17, 30, 43, 4];
+// 环形格颜色：0 绿、1 黄、2 蓝、3 红，映射到座位
+const CELL_SEAT = [3, 0, 1, 2];
+
+const DEFAULT_RULES = {
+  weather: true,
+  stackMove: false,
+  takeoffFive: false,
+  endMode: 'first', // first | rank
+  botLevel: 'normal', // easy | normal | hard
+};
+
+const TRACK_LAST = 49;
+const GOAL_T = 55;
 const MAX_PLAYERS = 4;
 const START_STEP = 13;
 
@@ -74,14 +94,14 @@ function ringIndexOf(seat, t) {
   return (seat * START_STEP + t) % RING.length;
 }
 
-/** 格子颜色 = 环形下标 % 4，正好与四位玩家的起飞点对齐 */
+/** 格子颜色 = 环形下标 % 4（0 绿、1 黄、2 蓝、3 红），映射到座位 */
 function cellSeat(ringIdx) {
-  return ringIdx % 4;
+  return CELL_SEAT[ringIdx % 4];
 }
 
-/** 飞机格（可飞 12 格）：每队各两格 */
+/** 该格是否是某队的飞行捷径触发格 */
 function isFlyCell(ringIdx) {
-  return ringIdx % 13 === 5 || ringIdx % 13 === 11;
+  return FLY_TRIGGERS.includes(ringIdx);
 }
 
 function isJumpCell(seat, ringIdx) {
@@ -96,6 +116,8 @@ function createRoom(code) {
     players: [],
     planes: [[-1, -1, -1, -1], [-1, -1, -1, -1], [-1, -1, -1, -1], [-1, -1, -1, -1]],
     phase: 'lobby', // lobby | playing | finished
+    rules: { ...DEFAULT_RULES },
+    finishOrder: [],
     turn: 0,
     dice: null,
     lastDice: null,
@@ -111,7 +133,7 @@ function createRoom(code) {
   };
 }
 
-function addPlayer(room, { id, name }) {
+function addPlayer(room, { id, name, isBot }) {
   if (room.players.length >= MAX_PLAYERS) return null;
   const seat = room.players.length;
   const player = {
@@ -120,6 +142,7 @@ function addPlayer(room, { id, name }) {
     color: COLORS[seat],
     seat,
     connected: true,
+    isBot: Boolean(isBot),
     socketId: null,
     joinedAt: Date.now(),
   };
@@ -175,9 +198,10 @@ function pushLog(room, text, meta) {
  * 计算一次移动的结果。
  * @returns {{to:number, bonuses:Array<{type:'fly'|'jump', from:number, to:number}>}|null}
  */
-function resolveMove(seat, t, dice) {
+function resolveMove(seat, t, dice, rules) {
   if (t === -1) {
-    if (dice !== 6) return null;
+    const canTakeoff = dice === 6 || Boolean(rules && rules.takeoffFive && dice === 5);
+    if (!canTakeoff) return null;
     return { to: 0, bonuses: [] };
   }
   if (t >= GOAL_T) return null;
@@ -187,13 +211,13 @@ function resolveMove(seat, t, dice) {
   const bonuses = [];
   if (to <= TRACK_LAST) {
     const ring = ringIndexOf(seat, to);
-    if (cellSeat(ring) === seat) {
-      if (isFlyCell(ring)) {
-        if (to + 12 <= TRACK_LAST) {
-          bonuses.push({ type: 'fly', from: to, to: to + 12 });
-          to += 12;
-        }
-      } else if (to + 4 <= TRACK_LAST) {
+    if (ring === FLY_TRIGGERS[seat]) {
+      if (to + 12 <= TRACK_LAST) {
+        bonuses.push({ type: 'fly', from: to, to: to + 12 });
+        to += 12;
+      }
+    } else if (cellSeat(ring) === seat) {
+      if (to + 4 <= TRACK_LAST) {
         bonuses.push({ type: 'jump', from: to, to: to + 4 });
         to += 4;
       }
@@ -205,34 +229,52 @@ function resolveMove(seat, t, dice) {
 function legalMoves(room, seat, dice) {
   const moves = [];
   room.planes[seat].forEach((t, plane) => {
-    const res = resolveMove(seat, t, dice);
+    const res = resolveMove(seat, t, dice, room.rules);
     if (!res) return;
-    moves.push({ plane, from: t, to: res.to, bonuses: res.bonuses });
+    const group =
+      room.rules && room.rules.stackMove && t >= 0
+        ? room.planes[seat].filter((pt) => pt === t).length
+        : 1;
+    moves.push({ plane, from: t, to: res.to, bonuses: res.bonuses, group });
   });
   return moves;
 }
 
+function weatherAt(ringIdx) {
+  if (TYPHOON_CELLS.includes(ringIdx)) return 'typhoon';
+  if (LIGHTNING_CELLS.includes(ringIdx)) return 'lightning';
+  return '';
+}
+
+/** 把 seat 在位置 t 的落点上的对手全部撞回停机坪 */
+function captureAt(room, seat, t, captures) {
+  if (t < 0 || t > TRACK_LAST) return;
+  const ring = ringIndexOf(seat, t);
+  for (let q = 0; q < room.players.length; q += 1) {
+    if (q === seat) continue;
+    room.planes[q].forEach((pt, j) => {
+      if (pt >= 0 && pt <= TRACK_LAST && ringIndexOf(q, pt) === ring) {
+        room.planes[q][j] = -1;
+        captures.push({ seat: q, plane: j });
+      }
+    });
+  }
+}
+
 /**
  * 执行移动，返回本回合的结构化结果（含被撞回的飞机）。
+ * groupPlanes 用于“叠子一起走”：把同格的己方飞机一起移动。
  */
-function applyMove(room, seat, plane, option) {
+function applyMove(room, seat, plane, option, groupPlanes) {
   const planes = room.planes[seat];
+  const group = Array.isArray(groupPlanes) && groupPlanes.length ? groupPlanes : [plane];
   const from = planes[plane];
-  planes[plane] = option.to;
+  group.forEach((pi) => {
+    planes[pi] = option.to;
+  });
 
   const captures = [];
-  if (option.to <= TRACK_LAST) {
-    const ring = ringIndexOf(seat, option.to);
-    for (let q = 0; q < room.players.length; q += 1) {
-      if (q === seat) continue;
-      room.planes[q].forEach((pt, j) => {
-        if (pt >= 0 && pt <= TRACK_LAST && ringIndexOf(q, pt) === ring) {
-          room.planes[q][j] = -1;
-          captures.push({ seat: q, plane: j });
-        }
-      });
-    }
-  }
+  if (option.to <= TRACK_LAST) captureAt(room, seat, option.to, captures);
 
   const player = room.players[seat];
   const name = player ? player.name : COLOR_NAMES[COLORS[seat]];
@@ -240,6 +282,11 @@ function applyMove(room, seat, plane, option) {
 
   if (from === -1) {
     pushLog(room, `${name} 的 ${plane + 1} 号机起飞`, { seat, type: 'takeoff' });
+  } else if (group.length > 1) {
+    pushLog(room, `${name} 的 ${group.length} 架飞机一起前进 ${option.to - from} 格`, {
+      seat,
+      type: 'move',
+    });
   } else {
     pushLog(room, `${name} 的 ${plane + 1} 号机前进 ${option.to - from} 格`, { seat, type: 'move' });
   }
@@ -247,6 +294,30 @@ function applyMove(room, seat, plane, option) {
     if (b.type === 'fly') pushLog(room, `${name} 命中飞机格，沿虚线飞 12 格`, { seat, type: 'fly' });
     if (b.type === 'jump') pushLog(room, `${name} 落到本色格，跳跃 4 格`, { seat, type: 'jump' });
   });
+
+  // 特殊天气：台风随机吹走，雷电劈回停机坪
+  let weather = '';
+  if (room.rules && room.rules.weather && option.to <= TRACK_LAST) {
+    weather = weatherAt(ringIndexOf(seat, option.to));
+    if (weather === 'lightning') {
+      group.forEach((pi) => {
+        planes[pi] = -1;
+        pushLog(room, `${name} 的 ${pi + 1} 号机被雷电劈回停机坪`, { seat, type: 'weather' });
+      });
+    } else if (weather === 'typhoon') {
+      group.forEach((pi) => {
+        let nt = randInt(TRACK_LAST + 1);
+        if (nt === option.to) nt = (nt + 1) % (TRACK_LAST + 1);
+        planes[pi] = nt;
+        captureAt(room, seat, nt, captures);
+        pushLog(room, `${name} 的 ${pi + 1} 号机被台风吹到航道 ${nt + 1}`, {
+          seat,
+          type: 'weather',
+        });
+      });
+    }
+  }
+
   captures.forEach((c) => {
     const victim = room.players[c.seat];
     pushLog(room, `${name} 撞回了 ${victim ? victim.name : colorName} 的 1 架飞机`, {
@@ -260,11 +331,37 @@ function applyMove(room, seat, plane, option) {
   }
 
   let winner = null;
-  if (planes.every((t) => t === GOAL_T)) {
-    room.phase = 'finished';
-    room.winner = seat;
-    winner = seat;
-    pushLog(room, `${name} 四机全部到达终点，获得胜利！`, { seat, type: 'win' });
+  const allDone = planes.every((t) => t === GOAL_T);
+  let finishedPlayer = false;
+  if (allDone && !room.finishOrder.includes(seat)) {
+    room.finishOrder.push(seat);
+    finishedPlayer = true;
+    if (room.rules.endMode === 'rank') {
+      pushLog(room, `${name} 第 ${room.finishOrder.length} 名完赛`, { seat, type: 'rank' });
+    }
+  }
+
+  if (allDone) {
+    if (room.rules.endMode !== 'rank') {
+      room.phase = 'finished';
+      room.winner = seat;
+      winner = seat;
+      pushLog(room, `${name} 四机全部到达终点，获得胜利！`, { seat, type: 'win' });
+    } else if (room.finishOrder.length >= room.players.length - 1) {
+      room.players.forEach((p, i) => {
+        if (room.finishOrder.includes(i)) return;
+        room.finishOrder.push(i);
+        pushLog(room, `${p.name} 第 ${room.finishOrder.length} 名`, { seat: i, type: 'rank' });
+      });
+      room.phase = 'finished';
+      room.winner = room.finishOrder[0];
+      winner = room.winner;
+      const champ = room.players[room.winner];
+      pushLog(room, `比赛结束，${champ ? champ.name : ''} 获得冠军！`, {
+        seat: room.winner,
+        type: 'win',
+      });
+    }
   }
 
   const result = {
@@ -274,7 +371,10 @@ function applyMove(room, seat, plane, option) {
     to: option.to,
     bonuses: option.bonuses,
     captures,
+    weather,
+    group,
     winner,
+    finishedPlayer,
     dice: room.lastDice,
   };
   room.lastMove = result;
@@ -285,9 +385,82 @@ function rollDice() {
   return 1 + randInt(6);
 }
 
+/** 电脑策略：按难度选择走法 */
+function pickBotMove(room, seat, options) {
+  if (!options || !options.length) return null;
+  const level = (room.rules && room.rules.botLevel) || 'normal';
+  if (level === 'easy') {
+    return options[Math.floor(Math.random() * options.length)];
+  }
+
+  let best = null;
+  let bestScore = -Infinity;
+
+  options.forEach((opt) => {
+    let score = opt.to;
+    if (opt.to === GOAL_T) score += 600;
+    if (opt.from === -1) score += 120;
+    (opt.bonuses || []).forEach((bonus) => {
+      if (bonus.type === 'fly') score += 90;
+      if (bonus.type === 'jump') score += 50;
+    });
+    if (opt.to <= TRACK_LAST) {
+      const ring = ringIndexOf(seat, opt.to);
+      let enemies = 0;
+      for (let q = 0; q < room.players.length; q += 1) {
+        if (q === seat) continue;
+        (room.planes[q] || []).forEach((pt) => {
+          if (pt >= 0 && pt <= TRACK_LAST && ringIndexOf(q, pt) === ring) enemies += 1;
+        });
+      }
+      if (enemies > 0) score += 400 * enemies;
+
+      if (level === 'hard') {
+        // 避开对手 1-6 步可到达的落点
+        let threats = 0;
+        for (let q = 0; q < room.players.length; q += 1) {
+          if (q === seat) continue;
+          (room.planes[q] || []).forEach((pt) => {
+            if (pt < 0 || pt > TRACK_LAST) return;
+            const step = (ring - ringIndexOf(q, pt) + RING.length) % RING.length;
+            if (step >= 1 && step <= 6 && pt + step <= TRACK_LAST) threats += 1;
+          });
+        }
+        if (threats > 0) score -= 35 * threats;
+
+        if (room.rules.weather) {
+          const zone = weatherAt(ring);
+          if (zone === 'lightning') score -= 80;
+          if (zone === 'typhoon') score -= 20;
+        }
+      }
+    }
+    if (score > bestScore) {
+      bestScore = score;
+      best = opt;
+    }
+  });
+
+  return best;
+}
+
+/** 按座位顺序找下一个还没完赛的玩家 */
+function nextSeat(room) {
+  const n = room.players.length;
+  if (!n) return 0;
+  for (let i = 1; i <= n; i += 1) {
+    const s = (room.turn + i) % n;
+    if (!room.players[s]) continue;
+    if (room.rules.endMode === 'rank' && room.finishOrder.includes(s)) continue;
+    return s;
+  }
+  return room.turn;
+}
+
 function startGame(room) {
   clearTimers(room);
   room.planes = [[-1, -1, -1, -1], [-1, -1, -1, -1], [-1, -1, -1, -1], [-1, -1, -1, -1]];
+  room.finishOrder = [];
   room.phase = 'playing';
   room.turn = 0;
   room.dice = null;
@@ -315,6 +488,8 @@ function publicState(room) {
   return {
     code: room.code,
     phase: room.phase,
+    rules: { ...room.rules },
+    finishOrder: [...room.finishOrder],
     turn: room.turn,
     dice: room.dice,
     lastDice: room.lastDice,
@@ -329,6 +504,7 @@ function publicState(room) {
       color: p.color,
       seat: p.seat,
       connected: p.connected,
+      isBot: Boolean(p.isBot),
     })),
     planes: room.planes.map((a) => a.slice()),
     log: room.log.slice(-40),
@@ -344,11 +520,16 @@ module.exports = {
   RING,
   HOME,
   BASE_SLOTS,
-  GOAL_SLOTS,
-  TRACK_LAST,
+  GOAL_CENTER,
   GOAL_T,
+  TRACK_LAST,
   MAX_PLAYERS,
   START_STEP,
+  FLY_TRIGGERS,
+  DEFAULT_RULES,
+  TYPHOON_CELLS,
+  LIGHTNING_CELLS,
+  weatherAt,
   createRoom,
   addPlayer,
   removePlayer,
@@ -362,6 +543,8 @@ module.exports = {
   resolveMove,
   legalMoves,
   applyMove,
+  pickBotMove,
+  nextSeat,
   rollDice,
   startGame,
   beginTurn,

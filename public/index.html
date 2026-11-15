@@ -39,7 +39,8 @@
           <span id="turnText">等待玩家加入</span>
         </div>
         <div class="board" id="board">
-          <svg id="boardSvg" viewBox="0 0 14 14" role="img" aria-label="飞行棋棋盘"></svg>
+          <img class="board-image" src="assets/board-classic.jpg" alt="飞行棋盘" draggable="false" />
+          <div id="decor" class="decor"></div>
           <div id="planes" class="planes"></div>
         </div>
         <div class="board-foot">
@@ -69,10 +70,44 @@
           <div class="ssl-hint hidden" id="sslHint"></div>
         </section>
 
+        <section class="card rules-card" id="rulesCard">
+          <div class="card-head"><h2>玩法设置</h2><span class="tag ghost">开局前</span></div>
+          <label class="rule-row">
+            <span><b>特殊天气格</b><small>台风随机吹走，雷电劈回停机坪</small></span>
+            <input type="checkbox" id="ruleWeather" />
+          </label>
+          <label class="rule-row">
+            <span><b>叠子一起走</b><small>同格的己方飞机会一起移动</small></span>
+            <input type="checkbox" id="ruleStack" />
+          </label>
+          <label class="rule-row">
+            <span><b>5 点也能起飞</b><small>掷出 5 或 6 都可以起飞</small></span>
+            <input type="checkbox" id="ruleFive" />
+          </label>
+          <div class="rule-row column">
+            <span><b>结束方式</b><small>第一名即结束，或继续排满名次</small></span>
+            <div class="seg" id="segEndMode">
+              <button type="button" data-value="first">第一名即结束</button>
+              <button type="button" data-value="rank">排 1-4 名</button>
+            </div>
+          </div>
+          <div class="rule-row column">
+            <span><b>电脑难度</b><small>机器人选棋的聪明程度</small></span>
+            <div class="seg" id="segBotLevel">
+              <button type="button" data-value="easy">简单</button>
+              <button type="button" data-value="normal">普通</button>
+              <button type="button" data-value="hard">困难</button>
+            </div>
+          </div>
+        </section>
+
         <section class="card players-card">
           <div class="card-head"><h2>玩家</h2><span class="tag ghost" id="phaseTag">等待中</span></div>
           <div id="players" class="players"></div>
-          <button id="startBtn" class="btn-start" disabled>开始游戏</button>
+          <div class="lobby-actions">
+            <button id="addBotBtn" class="btn-bot" type="button">加满电脑</button>
+            <button id="startBtn" class="btn-start" disabled>开始游戏</button>
+          </div>
           <p class="start-hint" id="startHint">至少需要 2 名玩家</p>
         </section>
 
@@ -98,7 +133,8 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.9 6.26L21.5 9.3l-4.75 4.4 1.2 6.55L12 17.1l-5.95 3.15 1.2-6.55L2.5 9.3l6.6-1.04z"/></svg>
       </div>
       <h2 id="winnerName">红队 获胜</h2>
-      <p>四架飞机全部抵达终点</p>
+      <p id="winnerSub">四架飞机全部抵达终点</p>
+      <div class="winner-ranks hidden" id="winnerRanks"></div>
       <button id="againBtn" class="btn-start">再来一局</button>
     </div>
   </div>

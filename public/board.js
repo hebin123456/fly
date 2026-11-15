@@ -2,19 +2,10 @@
 
 /* global io, FlyChess */
 
-const {
-  SEAT_COLORS,
-  SEAT_LIGHT,
-  SEAT_NAMES,
-  planeCoord,
-  escapeHtml,
-} = FlyChess;
+const { SEAT_COLORS, SEAT_NAMES, planeCoord, escapeHtml, COORD_MAX } = FlyChess;
 
 const RING = FlyChess.RING;
-const HOME = FlyChess.HOME;
-const BASE_SLOTS = FlyChess.BASE_SLOTS;
 const GOAL_T = FlyChess.GOAL_T;
-const GRID = 14;
 
 const PLANE_PATH =
   'M21 16v-2l-8-5V3.5A1.5 1.5 0 0 0 11.5 2 1.5 1.5 0 0 0 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z';
@@ -58,12 +49,6 @@ function emitAck(event, payload, timeout = 5000) {
   });
 }
 
-function svgEl(tag, attrs) {
-  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
-  Object.entries(attrs || {}).forEach(([k, v]) => el.setAttribute(k, v));
-  return el;
-}
-
 function toast(msg) {
   const el = $('toast');
   el.textContent = msg;
@@ -81,209 +66,33 @@ function setConn(online) {
 /* 棋盘绘制                                                           */
 /* ------------------------------------------------------------------ */
 
-function drawBoard() {
-  const svg = $('boardSvg');
-  svg.setAttribute('viewBox', '0 0 14 14');
-
-  // 底板
-  svg.appendChild(
-    svgEl('rect', { x: 0, y: 0, width: 14, height: 14, rx: 0.5, fill: '#fbf7ec' })
-  );
-
-  // 四角机库（5×5）
-  const baseOrigin = [[1, 1], [1, 8], [8, 8], [8, 1]];
-  for (let seat = 0; seat < 4; seat += 1) {
-    const [br, bc] = baseOrigin[seat];
-    svg.appendChild(
-      svgEl('rect', {
-        x: bc + 0.1,
-        y: br + 0.1,
-        width: 4.8,
-        height: 4.8,
-        rx: 0.92,
-        fill: SEAT_LIGHT[seat],
-        'fill-opacity': 0.85,
-        stroke: SEAT_COLORS[seat],
-        'stroke-opacity': 0.42,
-        'stroke-width': 0.06,
-      })
-    );
-    svg.appendChild(
-      svgEl('rect', {
-        x: bc + 0.46,
-        y: br + 0.46,
-        width: 4.08,
-        height: 4.08,
-        rx: 0.66,
-        fill: '#fffdf8',
-        'fill-opacity': 0.88,
-        stroke: SEAT_COLORS[seat],
-        'stroke-opacity': 0.16,
-        'stroke-width': 0.04,
-      })
-    );
-    const watermark = svgEl('g', {
-      transform: `translate(${bc + 2.5 - 0.66} ${br + 2.5 - 0.66}) scale(0.055)`,
-      fill: SEAT_COLORS[seat],
-      'fill-opacity': 0.13,
-    });
-    watermark.appendChild(svgEl('path', { d: PLANE_PATH }));
-    svg.appendChild(watermark);
-    BASE_SLOTS[seat].forEach(([r, c]) => {
-      svg.appendChild(
-        svgEl('circle', {
-          cx: c,
-          cy: r,
-          r: 0.42,
-          fill: '#fff',
-          'fill-opacity': 0.9,
-          stroke: SEAT_COLORS[seat],
-          'stroke-opacity': 0.52,
-          'stroke-width': 0.05,
-          'stroke-dasharray': '0.1 0.08',
-        })
-      );
-    });
-  }
-
-  // 归航跑道
-  for (let seat = 0; seat < 4; seat += 1) {
-    HOME[seat].forEach(([r, c]) => {
-      svg.appendChild(
-        svgEl('rect', {
-          x: c + 0.07,
-          y: r + 0.07,
-          width: 0.86,
-          height: 0.86,
-          rx: 0.18,
-          fill: SEAT_COLORS[seat],
-          'fill-opacity': 0.95,
-          stroke: '#ffffff',
-          'stroke-opacity': 0.9,
-          'stroke-width': 0.045,
-        })
-      );
-    });
-  }
-
-  // 外圈 52 格主航道
-  RING.forEach(([r, c], idx) => {
-    const seat = idx % 4;
-    const fly = idx % 13 === 5 || idx % 13 === 11;
-    const isStart = idx % 13 === 0;
-    svg.appendChild(
-      svgEl('rect', {
-        x: c + 0.06,
-        y: r + 0.06,
-        width: 0.88,
-        height: 0.88,
-        rx: 0.18,
-        fill: SEAT_COLORS[seat],
-        'fill-opacity': fly ? 1 : 0.86,
-        stroke: '#ffffff',
-        'stroke-opacity': 0.95,
-        'stroke-width': 0.045,
-      })
-    );
-    if (fly) {
-      const g = svgEl('g', {
-        transform: `translate(${c + 0.225} ${r + 0.245}) scale(0.022)`,
-        fill: '#ffffff',
-        'fill-opacity': 0.92,
-      });
-      g.appendChild(svgEl('path', { d: PLANE_PATH }));
-      svg.appendChild(g);
-    }
-    if (isStart) {
-      svg.appendChild(
-        svgEl('circle', {
-          cx: c + 0.5,
-          cy: r + 0.5,
-          r: 0.29,
-          fill: 'none',
-          stroke: '#ffffff',
-          'stroke-opacity': 0.95,
-          'stroke-width': 0.07,
-        })
-      );
-    }
-  });
-
-  // 飞行捷径虚线（每队一条，飞 12 格）
-  [11, 24, 37, 50].forEach((idx) => {
-    const seat = idx % 4;
-    const [r1, c1] = RING[idx];
-    const [r2, c2] = RING[(idx + 12) % RING.length];
-    const x1 = c1 + 0.5;
-    const y1 = r1 + 0.5;
-    const x2 = c2 + 0.5;
-    const y2 = r2 + 0.5;
-    const mx = (x1 + x2) / 2;
-    const my = (y1 + y2) / 2;
-    const cx = mx + (7 - mx) * 0.32;
-    const cy = my + (7 - my) * 0.32;
-    svg.appendChild(
-      svgEl('path', {
-        d: `M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}`,
-        fill: 'none',
-        stroke: SEAT_COLORS[seat],
-        'stroke-opacity': 0.38,
-        'stroke-width': 0.06,
-        'stroke-dasharray': '0.15 0.13',
-        'stroke-linecap': 'round',
-      })
-    );
-  });
-
-  // 中央终点（2×2 四色风车）
-  svg.appendChild(
-    svgEl('rect', { x: 6.04, y: 6.04, width: 1.92, height: 1.92, rx: 0.16, fill: '#0b1220' })
-  );
-  const center = [
-    { pts: '6,6 8,6 7,7', seat: 0 },
-    { pts: '6,6 6,8 7,7', seat: 1 },
-    { pts: '6,8 8,8 7,7', seat: 2 },
-    { pts: '8,6 8,8 7,7', seat: 3 },
+function setupBoardDecor() {
+  const decor = $('decor');
+  const weatherCells = [
+    ...FlyChess.TYPHOON_CELLS.map((idx) => [idx, '台']),
+    ...FlyChess.LIGHTNING_CELLS.map((idx) => [idx, '雷']),
   ];
-  center.forEach(({ pts, seat }) => {
-    svg.appendChild(
-      svgEl('polygon', {
-        points: pts,
-        fill: SEAT_COLORS[seat],
-        'fill-opacity': 0.95,
-        stroke: '#0b1220',
-        'stroke-width': 0.035,
-      })
-    );
+  weatherCells.forEach(([idx, glyph]) => {
+    const [r, c] = RING[idx];
+    const el = document.createElement('div');
+    el.className = 'weather-badge';
+    el.textContent = glyph;
+    el.style.left = `${(c / COORD_MAX) * 100}%`;
+    el.style.top = `${(r / COORD_MAX) * 100}%`;
+    decor.appendChild(el);
   });
 
-  // 终点计数徽标
-  goalBadges = [[7, 6.46], [6.46, 7], [7, 7.54], [7.54, 7]].map(([r, c], seat) => {
-    const g = svgEl('g', { opacity: 0, 'pointer-events': 'none' });
-    g.appendChild(
-      svgEl('circle', {
-        cx: c,
-        cy: r,
-        r: 0.245,
-        fill: SEAT_COLORS[seat],
-        stroke: '#fffdf8',
-        'stroke-width': 0.045,
-      })
-    );
-    const text = svgEl('text', {
-      x: c,
-      y: r + 0.008,
-      fill: '#fff',
-      'font-size': 0.29,
-      'font-weight': '700',
-      'text-anchor': 'middle',
-      'dominant-baseline': 'central',
-      'font-family': 'system-ui, -apple-system, sans-serif',
-    });
-    text.textContent = '0';
-    g.appendChild(text);
-    svg.appendChild(g);
-    return { g, text };
+  goalBadges = FlyChess.GOAL_CENTER.map(([r, c], seat) => {
+    const el = document.createElement('div');
+    el.className = 'goal-badge';
+    el.style.setProperty('--c', SEAT_COLORS[seat]);
+    el.style.left = `${(c / COORD_MAX) * 100}%`;
+    el.style.top = `${(r / COORD_MAX) * 100}%`;
+    const count = document.createElement('span');
+    count.textContent = '0';
+    el.appendChild(count);
+    decor.appendChild(el);
+    return { el, count };
   });
 }
 
@@ -329,8 +138,8 @@ function renderTokens() {
       let scale = 1;
       if (n > 1) {
         const angle = (Math.PI * 2 * i) / n - Math.PI / 2;
-        r += Math.sin(angle) * 0.17;
-        c += Math.cos(angle) * 0.17;
+        r += Math.sin(angle) * 8;
+        c += Math.cos(angle) * 8;
         scale = 0.8;
       }
 
@@ -342,8 +151,8 @@ function renderTokens() {
         tokens.set(key, el);
         planesEl.appendChild(el);
       }
-      el.style.left = `${(c / GRID) * 100}%`;
-      el.style.top = `${(r / GRID) * 100}%`;
+      el.style.left = `${(c / COORD_MAX) * 100}%`;
+      el.style.top = `${(r / COORD_MAX) * 100}%`;
       el.style.setProperty('--s', scale.toFixed(3));
       const active = state.phase === 'playing' && it.seat === state.turn;
       el.classList.toggle('active', active);
@@ -366,8 +175,8 @@ function renderGoalCounts() {
   goalBadges.forEach((badge, seat) => {
     const p = state.players.find((x) => x.seat === seat);
     const count = p ? (state.planes[seat] || []).filter((t) => t === GOAL_T).length : 0;
-    badge.g.setAttribute('opacity', count > 0 ? '1' : '0');
-    badge.text.textContent = String(count);
+    badge.el.classList.toggle('show', count > 0);
+    badge.count.textContent = String(count);
   });
 }
 
@@ -391,14 +200,27 @@ function renderPlayers() {
     }
     const arrived = (state.planes[p.seat] || []).filter((t) => t === GOAL_T).length;
     const active = state.phase === 'playing' && state.turn === seat;
+    const rank = (state.finishOrder || []).indexOf(seat) + 1;
     rows.push(`
-      <div class="player-row ${active ? 'active' : ''}" style="--c:${SEAT_COLORS[seat]}">
+      <div class="player-row ${active ? 'active' : ''} ${rank === 1 ? 'champion' : ''}" style="--c:${SEAT_COLORS[seat]}">
         <span class="pdot"></span>
         <div class="pinfo">
           <b>${escapeHtml(p.name)}</b>
-          <small>${SEAT_NAMES[seat]} · 已抵达 ${arrived} / 4</small>
+          <small>${SEAT_NAMES[seat]} · ${rank ? `第 ${rank} 名` : `已抵达 ${arrived} / 4`}</small>
         </div>
-        <span class="pstate ${p.connected ? '' : 'off'}">${active ? '行动中' : p.connected ? '在线' : '离线'}</span>
+        <span class="pstate ${rank || p.connected || p.isBot ? '' : 'off'}">${
+          rank
+            ? '完赛'
+            : active
+              ? p.isBot
+                ? '思考中'
+                : '行动中'
+              : p.isBot
+                ? '电脑'
+                : p.connected
+                  ? '在线'
+                  : '离线'
+        }</span>
       </div>`);
   }
   wrap.innerHTML = rows.join('');
@@ -449,12 +271,15 @@ function renderDice() {
     return;
   }
   $('diceLabel').textContent = p ? `${p.name} 的回合` : '进行中';
+  const bot = Boolean(p && p.isBot);
   if (state.awaitingMove) {
-    $('diceSub').textContent = `掷出 ${state.lastDice || state.dice} 点，请在手机上选一架飞机`;
+    $('diceSub').textContent = `掷出 ${state.lastDice || state.dice} 点，${
+      bot ? '电脑正在选飞机' : '请在手机上选飞机'
+    }`;
   } else if (state.dice != null) {
     $('diceSub').textContent = state.dice === 6 ? '掷出 6 点，可以再掷一次' : '等待飞机移动';
   } else {
-    $('diceSub').textContent = '等待手机摇一摇掷骰子';
+    $('diceSub').textContent = bot ? '电脑正在掷骰子…' : '等待手机摇一摇掷骰子';
   }
 }
 
@@ -490,6 +315,7 @@ function renderLog(force) {
 
 function renderControls() {
   const startBtn = $('startBtn');
+  const addBotBtn = $('addBotBtn');
   const hint = $('startHint');
   const phaseTag = $('phaseTag');
   const playing = state.phase === 'playing';
@@ -500,14 +326,32 @@ function renderControls() {
   $('joinCard').classList.toggle('compact', playing || state.phase === 'finished');
   $('joinCompactCode').textContent = state.code;
   $('joinTitle').textContent = playing || state.phase === 'finished' ? '房间信息' : '手机扫码加入';
+  $('rulesCard').classList.toggle('hidden', state.phase !== 'lobby');
 
   if (state.phase === 'lobby') {
+    const bots = state.players.filter((p) => p.isBot).length;
+    const hasHuman = state.players.some((p) => !p.isBot);
+    const botLimit = hasHuman ? 4 : 3;
+
+    addBotBtn.classList.remove('hidden');
+    addBotBtn.disabled = state.players.length >= botLimit;
     startBtn.classList.remove('hidden');
-    startBtn.disabled = state.players.length < 2 || startPending;
+
+    startBtn.disabled = state.players.length < 2 || !hasHuman || startPending;
     startBtn.textContent = startPending ? '正在开始…' : '开始游戏';
-    hint.textContent =
-      state.players.length < 2 ? '至少需要 2 名玩家，扫码邀请朋友' : '人齐了，点击开始（最多 4 人）';
+
+    if (!hasHuman) {
+      hint.textContent =
+        bots > 0 ? '电脑已就位，手机扫码加入后即可开始' : '手机扫码加入，或点「加满电脑」单人开局';
+    } else if (state.players.length < 2) {
+      hint.textContent = '再拉一位朋友，或点「加满电脑」单人开局';
+    } else if (bots > 0) {
+      hint.textContent = `人机对战 · ${bots} 个电脑，点击开始`;
+    } else {
+      hint.textContent = '人齐了，点击开始（最多 4 人）';
+    }
   } else {
+    addBotBtn.classList.add('hidden');
     startBtn.classList.add('hidden');
     hint.textContent = playing ? '手机端摇一摇即可掷骰子' : '大屏可直接再来一局';
   }
@@ -521,15 +365,41 @@ function renderWinner() {
   }
   const w = state.players.find((p) => p.seat === state.winner);
   const name = w ? w.name : SEAT_NAMES[state.winner];
+  const rankMode = state.rules && state.rules.endMode === 'rank';
+  const order = state.finishOrder || [];
+
   overlay.classList.remove('hidden');
-  $('winnerName').textContent = `${name} 获胜`;
+  $('winnerName').textContent = rankMode ? `冠军 · ${name}` : `${name} 获胜`;
+  $('winnerSub').textContent = rankMode ? '比赛结束 · 最终排名' : '四架飞机全部抵达终点';
   $('winnerName').style.setProperty('--win', SEAT_COLORS[state.winner] || '#fbbf24');
   $('winnerName').style.color = SEAT_COLORS[state.winner] || '#fbbf24';
+
+  const ranksEl = $('winnerRanks');
+  if (rankMode && order.length) {
+    ranksEl.classList.remove('hidden');
+    ranksEl.innerHTML = order
+      .map((seat, i) => {
+        const p = state.players.find((x) => x.seat === seat);
+        const color = SEAT_COLORS[seat] || '#8b9bb8';
+        return `<div class="winner-rank-row ${i === 0 ? 'first' : ''}">
+          <b>${i + 1}</b>
+          <span class="pdot" style="--c:${color}"></span>
+          <span class="name">${escapeHtml(p ? p.name : SEAT_NAMES[seat])}</span>
+          <span class="pstate">${SEAT_NAMES[seat]}</span>
+        </div>`;
+      })
+      .join('');
+  } else {
+    ranksEl.classList.add('hidden');
+    ranksEl.innerHTML = '';
+  }
 }
 
 function render(forceLog) {
   if (!state) return;
   $('roomCode').textContent = state.code;
+  $('board').classList.toggle('weather-off', !(state.rules && state.rules.weather));
+  renderRules();
   renderPlayers();
   renderTurn();
   renderDice();
@@ -537,6 +407,22 @@ function render(forceLog) {
   renderLog(Boolean(forceLog));
   renderTokens();
   renderWinner();
+}
+
+function renderRules() {
+  const r = state.rules || {};
+  $('ruleWeather').checked = Boolean(r.weather);
+  $('ruleStack').checked = Boolean(r.stackMove);
+  $('ruleFive').checked = Boolean(r.takeoffFive);
+
+  const endMode = r.endMode === 'rank' ? 'rank' : 'first';
+  const botLevel = ['easy', 'normal', 'hard'].includes(r.botLevel) ? r.botLevel : 'normal';
+  $('segEndMode')
+    .querySelectorAll('button')
+    .forEach((b) => b.classList.toggle('on', b.dataset.value === endMode));
+  $('segBotLevel')
+    .querySelectorAll('button')
+    .forEach((b) => b.classList.toggle('on', b.dataset.value === botLevel));
 }
 
 /* ------------------------------------------------------------------ */
@@ -661,6 +547,41 @@ $('startBtn').addEventListener('click', async () => {
   render();
 });
 
+$('addBotBtn').addEventListener('click', async () => {
+  if (!state || state.phase !== 'lobby') return;
+  const res = await emitAck('board:addBots', {});
+  if (res.error) toast(res.error);
+});
+
+async function saveRules() {
+  const endBtn = $('segEndMode').querySelector('button.on');
+  const botBtn = $('segBotLevel').querySelector('button.on');
+  const res = await emitAck('board:setRules', {
+    weather: $('ruleWeather').checked,
+    stackMove: $('ruleStack').checked,
+    takeoffFive: $('ruleFive').checked,
+    endMode: endBtn ? endBtn.dataset.value : 'first',
+    botLevel: botBtn ? botBtn.dataset.value : 'normal',
+  });
+  if (res.error) toast(res.error);
+}
+['ruleWeather', 'ruleStack', 'ruleFive'].forEach((id) => {
+  $(id).addEventListener('change', saveRules);
+});
+
+function bindRuleSeg(id) {
+  $(id).addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-value]');
+    if (!btn) return;
+    $(id)
+      .querySelectorAll('button')
+      .forEach((b) => b.classList.toggle('on', b === btn));
+    saveRules();
+  });
+}
+bindRuleSeg('segEndMode');
+bindRuleSeg('segBotLevel');
+
 $('againBtn').addEventListener('click', async () => {
   const res = await emitAck('board:start', {});
   if (res.error) toast(res.error);
@@ -677,7 +598,7 @@ document.addEventListener('visibilitychange', async () => {
 });
 
 (async function init() {
-  drawBoard();
+  setupBoardDecor();
   setConn(socket.connected);
   await loadNet();
   try {

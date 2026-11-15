@@ -248,15 +248,23 @@ function renderStatus(me) {
   const card = $('statusCard');
   const cur = currentPlayer();
   const myTurn = state.phase === 'playing' && state.turn === me.seat;
+  const myRank = (state.finishOrder || []).indexOf(me.seat) + 1;
   let title = '';
   let sub = '';
   let color = SEAT_COLORS[me.seat];
 
   if (state.phase === 'lobby') {
     title = `已加入 · ${SEAT_NAMES[me.seat]}`;
-    sub = window.isSecureContext
-      ? '等大屏点「开始游戏」。可以先开启陀螺仪，试试摇一摇。'
-      : '等大屏点「开始游戏」。当前是 HTTP，摇一摇需要 HTTPS，也可以直接点骰子。';
+    const r = state.rules || {};
+    const tags = [];
+    if (r.weather) tags.push('天气格');
+    if (r.stackMove) tags.push('叠子一起走');
+    if (r.takeoffFive) tags.push('5 点起飞');
+    sub = `等大屏点「开始游戏」。规则：${tags.length ? tags.join(' · ') : '经典'}`;
+  } else if (myRank > 0) {
+    title = `你已第 ${myRank} 名完赛`;
+    sub = '比赛继续中，等待其他玩家完赛…';
+    color = SEAT_COLORS[me.seat];
   } else if (myTurn) {
     color = SEAT_COLORS[me.seat];
     if (state.awaitingMove) {
@@ -328,12 +336,24 @@ function renderOptions(me) {
     return;
   }
   optionsHead.textContent = `掷出 ${state.dice} 点 · 选一架飞机移动`;
-  optionsList.innerHTML = state.options
+  const unique = [];
+  const seen = new Set();
+  state.options.forEach((opt) => {
+    const key = `${opt.from}:${opt.to}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    unique.push(opt);
+  });
+  optionsList.innerHTML = unique
     .map((opt) => {
+      const group = opt.group || 1;
       const bonus = bonusLabel(opt.bonuses);
       const from = posLabel(opt.from);
       const to = opt.to === FlyChess.GOAL_T ? '终点' : posLabel(opt.to);
-      const sub = opt.from === -1 ? '起飞，进入主航道' : `前进 ${opt.to - opt.from} 格`;
+      const sub =
+        opt.from === -1
+          ? '起飞，进入主航道'
+          : `${group > 1 ? `${group} 架一起 · ` : ''}前进 ${opt.to - opt.from} 格`;
       return `
         <button class="move-opt" data-plane="${opt.plane}" style="--c:${SEAT_COLORS[me.seat]}">
           <span class="mo-plane">${opt.plane + 1}</span>
@@ -380,12 +400,23 @@ function renderPlayers(me) {
       continue;
     }
     const isTurn = state.phase === 'playing' && state.turn === seat;
+    const rank = (state.finishOrder || []).indexOf(seat) + 1;
     rows.push(`
       <div class="mini-row" style="--c:${SEAT_COLORS[seat]}">
         <span class="mini-dot"></span>
         <span class="mini-name">${escapeHtml(p.name)}${seat === me.seat ? '（你）' : ''}</span>
         <span class="mini-state ${isTurn ? 'turn' : ''}">${
-          isTurn ? '行动中' : p.connected ? '在线' : '离线'
+          rank
+            ? `第 ${rank} 名`
+            : isTurn
+              ? p.isBot
+                ? '思考中'
+                : '行动中'
+              : p.isBot
+                ? '电脑'
+                : p.connected
+                  ? '在线'
+                  : '离线'
         }</span>
       </div>`);
   }
@@ -395,11 +426,38 @@ function renderPlayers(me) {
 function renderWinner() {
   const w = state.players.find((p) => p.seat === state.winner);
   const mySeatIndex = mySeat();
+  const order = state.finishOrder || [];
+  const myRank = order.indexOf(mySeatIndex) + 1;
+  const rankMode = state.rules && state.rules.endMode === 'rank';
   const name = w ? w.name : SEAT_NAMES[state.winner] || '赢家';
-  $('winnerTitle').textContent = `${name} 获胜`;
+
+  $('winnerTitle').textContent = rankMode ? `冠军 · ${name}` : `${name} 获胜`;
   $('winnerTitle').style.color = SEAT_COLORS[state.winner] || '#fbbf24';
-  $('winnerSub').textContent =
-    mySeatIndex === state.winner ? '恭喜，你的四架飞机全部抵达终点' : '四架飞机全部抵达终点';
+  $('winnerSub').textContent = myRank
+    ? `你获得第 ${myRank} 名`
+    : rankMode
+      ? '比赛结束'
+      : '四架飞机全部抵达终点';
+
+  const ranksEl = $('phoneRanks');
+  if (rankMode && order.length) {
+    ranksEl.classList.remove('hidden');
+    ranksEl.innerHTML = order
+      .map((seat, i) => {
+        const p = state.players.find((x) => x.seat === seat);
+        const color = SEAT_COLORS[seat] || '#8b9bb8';
+        return `<div class="winner-rank-row ${i === 0 ? 'first' : ''}">
+          <b>${i + 1}</b>
+          <span class="rank-dot" style="--c:${color}"></span>
+          <span class="name">${escapeHtml(p ? p.name : SEAT_NAMES[seat])}</span>
+          <span class="pstate">${SEAT_NAMES[seat]}</span>
+        </div>`;
+      })
+      .join('');
+  } else {
+    ranksEl.classList.add('hidden');
+    ranksEl.innerHTML = '';
+  }
 }
 
 function renderGyro() {

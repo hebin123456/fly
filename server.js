@@ -25,6 +25,7 @@ const ENABLE_HTTPS = String(process.env.ENABLE_HTTPS || '1') !== '0';
 const TURN_DELAY_MS = Math.max(0, Number(process.env.TURN_DELAY_MS ?? 1250));
 const MOVE_DELAY_MS = Math.max(0, Number(process.env.MOVE_DELAY_MS ?? 800));
 const OFFLINE_DELAY_MS = Math.max(0, Number(process.env.OFFLINE_DELAY_MS ?? 4000));
+const BOT_DELAY_MS = Math.max(0, Number(process.env.BOT_DELAY_MS ?? 900));
 
 const rooms = new Map();
 
@@ -109,12 +110,32 @@ function playerOf(room, socket) {
   return room.players.find((p) => p.id === data.playerId) || null;
 }
 
-/** 轮到一个离线玩家时自动托管：能走就走一步，否则跳过 */
+/** 轮到一个离线玩家或电脑时自动托管 */
 function watchTurn(room) {
   if (room.phase !== 'playing') return;
   const seat = room.turn;
   const player = room.players[seat];
-  if (!player || player.connected) return;
+  if (!player) return;
+
+  if (player.isBot) {
+    G.later(
+      room,
+      () => {
+        if (room.phase !== 'playing' || room.turn !== seat) return;
+        if (room.awaitingMove) {
+          const option = G.pickBotMove(room, seat, room.options);
+          if (option) doMove(room, seat, option.plane, option);
+          return;
+        }
+        if (room.dice != null) return;
+        handleRoll(room, player);
+      },
+      BOT_DELAY_MS
+    );
+    return;
+  }
+
+  if (player.connected) return;
   G.later(
     room,
     () => {
@@ -144,7 +165,7 @@ function endTurn(room, extra) {
       if (extra) {
         G.pushLog(room, '掷出 6 点，再掷一次', { type: 'extra' });
       } else {
-        room.turn = (room.turn + 1) % Math.max(1, room.players.length);
+        room.turn = G.nextSeat(room);
       }
       G.beginTurn(room);
       broadcast(room);
@@ -156,7 +177,13 @@ function endTurn(room, extra) {
 
 function doMove(room, seat, plane, option) {
   if (room.phase !== 'playing') return;
-  const result = G.applyMove(room, seat, plane, option);
+  const group = [plane];
+  if (room.rules.stackMove && option.from >= 0) {
+    room.planes[seat].forEach((t, i) => {
+      if (i !== plane && t === option.from) group.push(i);
+    });
+  }
+  const result = G.applyMove(room, seat, plane, option, group);
   room.options = [];
   room.awaitingMove = false;
   broadcast(room);
@@ -164,7 +191,7 @@ function doMove(room, seat, plane, option) {
     G.clearTimers(room);
     return;
   }
-  endTurn(room, result.dice === 6);
+  endTurn(room, result.dice === 6 && !result.finishedPlayer);
 }
 
 function handleRoll(room, player) {
@@ -204,6 +231,17 @@ function handleRoll(room, player) {
 
   room.awaitingMove = true;
   broadcast(room);
+  if (room.players[player.seat] && room.players[player.seat].isBot) {
+    G.later(
+      room,
+      () => {
+        if (room.phase !== 'playing' || room.turn !== player.seat || !room.awaitingMove) return;
+        const option = G.pickBotMove(room, player.seat, room.options);
+        if (option) doMove(room, player.seat, option.plane, option);
+      },
+      BOT_DELAY_MS
+    );
+  }
   return { ok: true, dice };
 }
 
@@ -243,13 +281,58 @@ io.on('connection', (socket) => {
     broadcast(room);
   });
 
+  /* 大屏：加满电脑 */
+  socket.on('board:addBots', (payload, ack) => {
+    const reply = typeof ack === 'function' ? ack : () => {};
+    const room = roomOf(socket);
+    if (!room) return reply({ error: '房间不存在' });
+    if (room.phase !== 'lobby') return reply({ error: '游戏已经开始，无法加电脑' });
+
+    let added = 0;
+    const humans = room.players.filter((p) => !p.isBot).length;
+    // 没有真人时留 1 个座位给手机扫码加入
+    const limit = humans > 0 ? G.MAX_PLAYERS : G.MAX_PLAYERS - 1;
+    while (room.players.length < limit) {
+      const botNo = room.players.filter((p) => p.isBot).length + 1;
+      const bot = G.addPlayer(room, { name: `电脑 ${botNo}`, isBot: true });
+      if (!bot) break;
+      G.pushLog(room, `${bot.name} 加入房间（${G.COLOR_NAMES[bot.color]}）`, {
+        type: 'join',
+        seat: bot.seat,
+      });
+      added += 1;
+    }
+    broadcast(room);
+    return reply({ ok: true, added });
+  });
+
+  /* 大屏：玩法设置（仅开局前） */
+  socket.on('board:setRules', (payload, ack) => {
+    const reply = typeof ack === 'function' ? ack : () => {};
+    const room = roomOf(socket);
+    if (!room) return reply({ error: '房间不存在' });
+    if (room.phase !== 'lobby') return reply({ error: '开局后不能修改规则' });
+
+    const r = payload || {};
+    room.rules = {
+      weather: Boolean(r.weather),
+      stackMove: Boolean(r.stackMove),
+      takeoffFive: Boolean(r.takeoffFive),
+      endMode: r.endMode === 'rank' ? 'rank' : 'first',
+      botLevel: ['easy', 'normal', 'hard'].includes(r.botLevel) ? r.botLevel : 'normal',
+    };
+    broadcast(room);
+    return reply({ ok: true, rules: room.rules });
+  });
+
   /* 大屏：开始 / 再来一局 */
   socket.on('board:start', (payload, ack) => {
     const reply = typeof ack === 'function' ? ack : () => {};
     const room = roomOf(socket);
     if (!room) return reply({ error: '房间不存在' });
     if (room.phase === 'playing') return reply({ error: '游戏已在进行中' });
-    if (room.players.length < 2) return reply({ error: '至少需要 2 名玩家' });
+    if (room.players.length < 2) return reply({ error: '至少需要 2 名玩家，或点「加满电脑」' });
+    if (!room.players.some((p) => !p.isBot)) return reply({ error: '至少需要 1 名真人玩家' });
 
     G.startGame(room);
     broadcast(room);
