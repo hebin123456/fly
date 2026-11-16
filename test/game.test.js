@@ -13,20 +13,26 @@ function roomWithPlayers(n = 4) {
   return room;
 }
 
-test('棋盘：52 格航道坐标唯一，四队起飞点间隔 13 格', () => {
+test('棋盘：52 格航道坐标唯一，四队按 13 格间隔出发', () => {
   assert.equal(G.RING.length, 52);
   assert.equal(new Set(G.RING.map(([r, c]) => `${r},${c}`)).size, 52);
+  assert.deepEqual(G.PATH_START, [3, 16, 29, 42]);
   for (let seat = 0; seat < 4; seat += 1) {
-    assert.equal(G.ringIndexOf(seat, 0), seat * 13);
-  }
-  // 环形格颜色 0 绿、1 黄、2 蓝、3 红 → 座位 3/0/1/2
-  assert.deepEqual([0, 1, 2, 3].map((i) => G.cellSeat(i)), [3, 0, 1, 2]);
-  // 每队最后一格紧邻自己的归航跑道入口
-  for (let seat = 0; seat < 4; seat += 1) {
+    assert.equal(G.ringIndexOf(seat, 1), G.PATH_START[seat]);
     const [r, c] = G.RING[G.ringIndexOf(seat, G.TRACK_LAST)];
     const [hr, hc] = G.HOME[seat][0];
     assert.ok(Math.hypot(r - hr, c - hc) < 60, `seat ${seat} 未与归航跑道相邻`);
   }
+});
+
+test('起飞：先到起点等待，下一次掷骰才进入航道', () => {
+  assert.deepEqual(G.resolveMove(0, -1, 6, G.DEFAULT_RULES), { to: 0, bonuses: [] });
+  assert.equal(G.resolveMove(0, -1, 5, G.DEFAULT_RULES), null);
+  assert.deepEqual(G.resolveMove(0, -1, 5, { ...G.DEFAULT_RULES, takeoffFive: true }), {
+    to: 0,
+    bonuses: [],
+  });
+  assert.deepEqual(G.resolveMove(0, 0, 1, G.DEFAULT_RULES), { to: 1, bonuses: [] });
 });
 
 test('起飞：停机坪上的飞机只有掷出 6 才能起飞', () => {
@@ -41,19 +47,19 @@ test('移动：超过终点不允许移动', () => {
 });
 
 test('跳跃：落在自己颜色的格子前进 4 格', () => {
-  // seat 0 黄色，t=4 掷 1 → 落在 t=5（环形 5 格，黄色），跳 4 → t=9
-  const res = G.resolveMove(0, 4, 1);
+  // seat 0 黄色，t=2 掷 1 → t=3（环形 (3+3-1)=5 格，黄色），跳 4 → t=7
+  const res = G.resolveMove(0, 2, 1);
   assert.ok(res);
-  assert.equal(res.to, 9);
+  assert.equal(res.to, 7);
   assert.equal(res.bonuses.length, 1);
   assert.equal(res.bonuses[0].type, 'jump');
 });
 
 test('飞行：落在本队捷径触发格飞 12 格', () => {
-  // seat 0 黄色，t=16 掷 1 → 落在 t=17（黄色捷径），飞 12 → t=29
-  const res = G.resolveMove(0, 16, 1);
+  // seat 0 黄色，t=17 掷 1 → t=18（环形 20 格，黄色捷径），飞 12 → t=30
+  const res = G.resolveMove(0, 17, 1);
   assert.ok(res);
-  assert.equal(res.to, 29);
+  assert.equal(res.to, 30);
   assert.equal(res.bonuses[0].type, 'fly');
 });
 
@@ -85,9 +91,9 @@ test('撞子：自己的飞机可以叠放在同一格', () => {
 test('胜负：四架飞机全部到达终点即获胜', () => {
   const room = roomWithPlayers(2);
   G.startGame(room);
-  room.planes[0] = [55, 55, 55, 54];
+  room.planes[0] = [56, 56, 56, 55];
   room.planes[2] = [10, 10, 10, 10];
-  const result = G.applyMove(room, 0, 3, { to: 55, bonuses: [] });
+  const result = G.applyMove(room, 0, 3, { to: 56, bonuses: [] });
   assert.equal(result.winner, 0);
   assert.equal(room.phase, 'finished');
   assert.equal(room.winner, 0);
@@ -113,7 +119,7 @@ test('可选走法：掷 1 时只能移动能走的飞机', () => {
 test('环形航道：每格被 3 或 4 支队伍经过，跳过格正好 8 个', () => {
   const counts = new Array(52).fill(0);
   for (let seat = 0; seat < 4; seat += 1) {
-    for (let t = 0; t <= G.TRACK_LAST; t += 1) {
+    for (let t = 1; t <= G.TRACK_LAST; t += 1) {
       counts[G.ringIndexOf(seat, t)] += 1;
     }
   }
@@ -164,42 +170,42 @@ test('规则：叠子一起走时，同格飞机一起移动', () => {
 test('天气：雷电格会把飞机劈回停机坪', () => {
   const room = roomWithPlayers(2);
   room.rules.weather = true;
-  room.planes[0][0] = 9;
-  assert.equal(G.weatherAt(G.ringIndexOf(0, 10)), 'lightning');
-  G.applyMove(room, 0, 0, { to: 10, bonuses: [] });
+  room.planes[0][0] = 7;
+  assert.equal(G.weatherAt(G.ringIndexOf(0, 8)), 'lightning');
+  G.applyMove(room, 0, 0, { to: 8, bonuses: [] });
   assert.equal(room.planes[0][0], -1);
 });
 
 test('天气：台风把飞机吹到其他航道', () => {
   const room = roomWithPlayers(2);
   room.rules.weather = true;
-  room.planes[0][0] = 5;
-  assert.equal(G.weatherAt(G.ringIndexOf(0, 6)), 'typhoon');
-  G.applyMove(room, 0, 0, { to: 6, bonuses: [] });
+  room.planes[0][0] = 3;
+  assert.equal(G.weatherAt(G.ringIndexOf(0, 4)), 'typhoon');
+  G.applyMove(room, 0, 0, { to: 4, bonuses: [] });
   const t = room.planes[0][0];
-  assert.ok(t >= 0 && t <= G.TRACK_LAST);
-  assert.notEqual(t, 6);
+  assert.ok(t >= 1 && t <= G.TRACK_LAST);
+  assert.notEqual(t, 4);
 });
 
 test('天气：关闭后落在天气格不触发', () => {
   const room = roomWithPlayers(2);
   room.rules.weather = false;
-  room.planes[0][0] = 9;
-  G.applyMove(room, 0, 0, { to: 10, bonuses: [] });
-  assert.equal(room.planes[0][0], 10);
+  room.planes[0][0] = 7;
+  G.applyMove(room, 0, 0, { to: 8, bonuses: [] });
+  assert.equal(room.planes[0][0], 8);
 });
 
 test('结束方式：排满名次时，第一名完赛后比赛继续', () => {
   const room = roomWithPlayers(3);
   room.rules.endMode = 'rank';
   G.startGame(room);
-  room.planes[0] = [55, 55, 55, 54];
-  room.planes[1] = [55, 55, 55, 54];
+  room.planes[0] = [56, 56, 56, 55];
+  room.planes[1] = [56, 56, 56, 55];
   room.planes[2] = [10, 10, 10, 10];
-  G.applyMove(room, 0, 3, { to: 55, bonuses: [] });
+  G.applyMove(room, 0, 3, { to: 56, bonuses: [] });
   assert.equal(room.phase, 'playing');
   assert.deepEqual(room.finishOrder, [0]);
-  G.applyMove(room, 1, 3, { to: 55, bonuses: [] });
+  G.applyMove(room, 1, 3, { to: 56, bonuses: [] });
   assert.equal(room.phase, 'finished');
   assert.deepEqual(room.finishOrder, [0, 1, 2]);
   assert.equal(room.winner, 0);

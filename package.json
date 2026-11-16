@@ -1,6 +1,6 @@
 {
   "name": "fly-chess",
-  "version": "1.5.2",
+  "version": "1.5.3",
   "private": true,
   "description": "多人网页飞行棋：平板当棋盘，手机扫码加入，摇一摇陀螺仪掷骰子",
   "main": "server.js",

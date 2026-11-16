@@ -138,8 +138,8 @@ function renderTokens() {
       let scale = 1;
       if (n > 1) {
         const angle = (Math.PI * 2 * i) / n - Math.PI / 2;
-        r += Math.sin(angle) * 8;
-        c += Math.cos(angle) * 8;
+        r += Math.sin(angle) * 4;
+        c += Math.cos(angle) * 4;
         scale = 0.8;
       }
 

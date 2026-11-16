@@ -45,12 +45,21 @@
   const TYPHOON_CELLS = [6, 19, 32, 45];
   const LIGHTNING_CELLS = [10, 23, 36, 49];
 
-  const GOAL_T = 55;
-  const TRACK_LAST = 49;
-  const FLY_TRIGGERS = [17, 30, 43, 4];
+  // 每队进入主航道的第一格（环形下标）与起飞等待点
+  const PATH_START = [3, 16, 29, 42];
+  const TAKEOFF = [
+    [170, 15],
+    [17, 429],
+    [430, 582],
+    [582, 168],
+  ];
+
+  const GOAL_T = 56;
+  const TRACK_LAST = 50;
+  const FLY_TRIGGERS = [20, 33, 46, 7];
 
   function ringIndexOf(seat, t) {
-    return (seat * 13 + t) % 52;
+    return (PATH_START[seat] + t - 1) % 52;
   }
 
   function isFlyCell(ringIdx) {
@@ -60,15 +69,17 @@
   /** 返回棋子中心点 [行, 列]（600×600 坐标系） */
   function planeCoord(seat, plane, t) {
     if (t === -1) return BASE_SLOTS[seat][plane];
+    if (t === 0) return TAKEOFF[seat];
     if (t <= TRACK_LAST) return RING[ringIndexOf(seat, t)];
-    if (t < GOAL_T) return HOME[seat][t - 50];
+    if (t < GOAL_T) return HOME[seat][t - 51];
     return GOAL_CENTER[seat];
   }
 
   function posLabel(t) {
     if (t === -1) return '停机坪';
-    if (t <= TRACK_LAST) return `航道 ${t + 1}`;
-    if (t < GOAL_T) return `归航 ${t - 49}`;
+    if (t === 0) return '起点等待';
+    if (t <= TRACK_LAST) return `航道 ${t}`;
+    if (t < GOAL_T) return `归航 ${t - 50}`;
     return '已抵达';
   }
 
@@ -96,6 +107,8 @@
     GOAL_T,
     TRACK_LAST,
     FLY_TRIGGERS,
+    PATH_START,
+    TAKEOFF,
     ringIndexOf,
     isFlyCell,
     planeCoord,

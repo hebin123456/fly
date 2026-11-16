@@ -117,7 +117,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   assert.ok(result, `对局未在 ${TIMEOUT_MS}ms 内结束（真人动作 ${actions} 次）`);
   const winner = result.players.find((p) => p.seat === result.winner);
   assert.ok(winner, '没有赢家');
-  assert.ok(result.planes[result.winner].every((t) => t === 55), '赢家飞机未全部抵达');
+  assert.ok(result.planes[result.winner].every((t) => t === 56), '赢家飞机未全部抵达');
   assert.ok(
     result.log.some((l) => /电脑 \d+ 掷出/.test(l.text)),
     '电脑没有掷骰记录'
