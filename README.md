@@ -98,7 +98,7 @@ ingress:
 
 ## 镜像构建与推送（GHCR）
 
-已发布地址：`ghcr.io/hebin123456/fly-chess`，标签 `latest` 与 `1.5.1`，已设为 **public**，可直接匿名拉取：
+已发布地址：`ghcr.io/hebin123456/fly-chess`，标签 `latest` 与 `1.5.2`，已设为 **public**，可直接匿名拉取：
 
 ```bash
 docker pull ghcr.io/hebin123456/fly-chess:latest
