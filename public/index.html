@@ -129,7 +129,18 @@
 
           <div class="rules-group">
             <div class="rules-group-title">对局模式</div>
-            <div class="rule-block">
+            <label class="rule-item">
+              <span class="rule-ico team">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="8" cy="8" r="3" />
+                  <circle cx="16" cy="8" r="3" />
+                  <path d="M2.5 20a5.5 5.5 0 0 1 11 0M10.5 20a5.5 5.5 0 0 1 11 0" />
+                </svg>
+              </span>
+              <span class="rule-text"><b>2v2 组队</b><small>黄+红 vs 蓝+绿，队友全部抵达获胜</small></span>
+              <input type="checkbox" id="ruleTeam" />
+            </label>
+            <div class="rule-block" id="endModeBlock">
               <div class="rule-block-label">结束方式</div>
               <div class="seg seg-cards" id="segEndMode">
                 <button type="button" data-value="first">

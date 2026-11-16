@@ -271,6 +271,9 @@ main {
 .rule-ico.stack svg { stroke: #c4b5fd; }
 .rule-ico.dice { background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.25); }
 .rule-ico.dice svg { stroke: #fcd34d; }
+.rule-ico.team { background: rgba(34, 211, 238, 0.12); border: 1px solid rgba(34, 211, 238, 0.25); }
+.rule-ico.team svg { stroke: #67e8f9; }
+.rule-block.disabled { opacity: 0.4; pointer-events: none; }
 .rule-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .rule-text b { font-size: 12.5px; font-weight: 600; color: #dbe5f7; }
 .rule-text small { font-size: 10px; color: var(--muted); line-height: 1.4; }

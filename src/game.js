@@ -69,9 +69,12 @@ const DEFAULT_RULES = {
   weather: true,
   stackMove: false,
   takeoffFive: false,
+  teamMode: false,
   endMode: 'first', // first | rank
   botLevel: 'normal', // easy | normal | hard
 };
+
+const TEAM_NAMES = ['黄红队', '蓝绿队'];
 
 const TRACK_LAST = 50;
 const GOAL_T = 56;
@@ -132,6 +135,7 @@ function createRoom(code) {
     options: [],
     awaitingMove: false,
     winner: null,
+    winnerTeam: null,
     log: [],
     logSeq: 1,
     lastMove: null,
@@ -260,6 +264,7 @@ function captureAt(room, seat, t, captures) {
   const ring = ringIndexOf(seat, t);
   for (let q = 0; q < room.players.length; q += 1) {
     if (q === seat) continue;
+    if (room.rules.teamMode && q % 2 === seat % 2) continue;
     room.planes[q].forEach((pt, j) => {
       if (pt >= 1 && pt <= TRACK_LAST && ringIndexOf(q, pt) === ring) {
         room.planes[q][j] = -1;
@@ -344,13 +349,33 @@ function applyMove(room, seat, plane, option, groupPlanes) {
   if (allDone && !room.finishOrder.includes(seat)) {
     room.finishOrder.push(seat);
     finishedPlayer = true;
-    if (room.rules.endMode === 'rank') {
+    if (room.rules.endMode === 'rank' && !room.rules.teamMode) {
       pushLog(room, `${name} 第 ${room.finishOrder.length} 名完赛`, { seat, type: 'rank' });
     }
   }
 
   if (allDone) {
-    if (room.rules.endMode !== 'rank') {
+    if (room.rules.teamMode) {
+      const team = seat % 2;
+      const teamDone = [team, team + 2].every(
+        (s) => room.planes[s] && room.planes[s].every((t) => t === GOAL_T)
+      );
+      if (teamDone) {
+        room.phase = 'finished';
+        room.winner = seat;
+        room.winnerTeam = team;
+        winner = seat;
+        pushLog(room, `${TEAM_NAMES[team]} 两队飞机全部到达终点，获得胜利！`, {
+          seat,
+          type: 'win',
+        });
+      } else {
+        pushLog(room, `${name} 四机到达终点，${TEAM_NAMES[team]} 等待队友完成`, {
+          seat,
+          type: 'goal',
+        });
+      }
+    } else if (room.rules.endMode !== 'rank') {
       room.phase = 'finished';
       room.winner = seat;
       winner = seat;
@@ -417,6 +442,7 @@ function pickBotMove(room, seat, options) {
       let enemies = 0;
       for (let q = 0; q < room.players.length; q += 1) {
         if (q === seat) continue;
+        if (room.rules.teamMode && q % 2 === seat % 2) continue;
         (room.planes[q] || []).forEach((pt) => {
           if (pt >= 1 && pt <= TRACK_LAST && ringIndexOf(q, pt) === ring) enemies += 1;
         });
@@ -428,6 +454,7 @@ function pickBotMove(room, seat, options) {
         let threats = 0;
         for (let q = 0; q < room.players.length; q += 1) {
           if (q === seat) continue;
+          if (room.rules.teamMode && q % 2 === seat % 2) continue;
           (room.planes[q] || []).forEach((pt) => {
             if (pt < 1 || pt > TRACK_LAST) return;
             const step = (ring - ringIndexOf(q, pt) + RING.length) % RING.length;
@@ -460,6 +487,7 @@ function nextSeat(room) {
     const s = (room.turn + i) % n;
     if (!room.players[s]) continue;
     if (room.rules.endMode === 'rank' && room.finishOrder.includes(s)) continue;
+    if (room.rules.teamMode && room.planes[s].every((t) => t === GOAL_T)) continue;
     return s;
   }
   return room.turn;
@@ -476,6 +504,7 @@ function startGame(room) {
   room.options = [];
   room.awaitingMove = false;
   room.winner = null;
+  room.winnerTeam = null;
   room.lastMove = null;
   room.round += 1;
   pushLog(room, `第 ${room.round} 局开始，${room.players[0] ? room.players[0].name : '红队'} 先手`, {
@@ -504,6 +533,7 @@ function publicState(room) {
     options: room.awaitingMove ? room.options : [],
     awaitingMove: room.awaitingMove,
     winner: room.winner,
+    winnerTeam: room.winnerTeam,
     round: room.round,
     seq: room.seq,
     players: room.players.map((p) => ({
@@ -525,6 +555,7 @@ module.exports = {
   COLORS,
   COLOR_NAMES,
   COLOR_HEX,
+  TEAM_NAMES,
   RING,
   HOME,
   BASE_SLOTS,

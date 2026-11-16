@@ -211,6 +211,43 @@ test('结束方式：排满名次时，第一名完赛后比赛继续', () => {
   assert.equal(room.winner, 0);
 });
 
+test('组队：队友同格不会被撞，对手会被撞回', () => {
+  const room = roomWithPlayers(4);
+  room.rules.teamMode = true;
+  room.rules.weather = false;
+  room.planes[0][0] = 9;
+  room.planes[1][0] = 49; // 对手，环 12
+  room.planes[2][0] = 36; // 队友，环 12
+  const result = G.applyMove(room, 0, 0, { to: 10, bonuses: [] });
+  assert.equal(room.planes[1][0], -1);
+  assert.equal(room.planes[2][0], 36);
+  assert.equal(result.captures.length, 1);
+});
+
+test('组队：两名队友全部抵达后队伍获胜', () => {
+  const room = roomWithPlayers(4);
+  room.rules.teamMode = true;
+  G.startGame(room);
+  room.planes[0] = [56, 56, 56, 55];
+  room.planes[2] = [56, 56, 56, 55];
+  G.applyMove(room, 0, 3, { to: 56, bonuses: [] });
+  assert.equal(room.phase, 'playing');
+  assert.equal(room.winnerTeam, null);
+  G.applyMove(room, 2, 3, { to: 56, bonuses: [] });
+  assert.equal(room.phase, 'finished');
+  assert.equal(room.winnerTeam, 0);
+  assert.equal(room.winner, 2);
+});
+
+test('组队：完赛玩家会被跳过', () => {
+  const room = roomWithPlayers(4);
+  G.startGame(room);
+  room.rules.teamMode = true;
+  room.planes[0] = [56, 56, 56, 56];
+  room.turn = 0;
+  assert.equal(G.nextSeat(room), 1);
+});
+
 test('电脑难度：简单难度随机选择合法走法', () => {
   const room = roomWithPlayers(2);
   room.rules.botLevel = 'easy';

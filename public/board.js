@@ -2,7 +2,7 @@
 
 /* global io, FlyChess */
 
-const { SEAT_COLORS, SEAT_NAMES, planeCoord, escapeHtml, COORD_MAX } = FlyChess;
+const { SEAT_COLORS, SEAT_NAMES, TEAM_NAMES, planeCoord, escapeHtml, COORD_MAX } = FlyChess;
 
 const RING = FlyChess.RING;
 const GOAL_T = FlyChess.GOAL_T;
@@ -201,12 +201,13 @@ function renderPlayers() {
     const arrived = (state.planes[p.seat] || []).filter((t) => t === GOAL_T).length;
     const active = state.phase === 'playing' && state.turn === seat;
     const rank = (state.finishOrder || []).indexOf(seat) + 1;
+    const teamTag = state.rules && state.rules.teamMode ? `${TEAM_NAMES[seat % 2]} · ` : '';
     rows.push(`
       <div class="player-row ${active ? 'active' : ''} ${rank === 1 ? 'champion' : ''}" style="--c:${SEAT_COLORS[seat]}">
         <span class="pdot"></span>
         <div class="pinfo">
           <b>${escapeHtml(p.name)}</b>
-          <small>${SEAT_NAMES[seat]} · ${rank ? `第 ${rank} 名` : `已抵达 ${arrived} / 4`}</small>
+          <small>${teamTag}${SEAT_NAMES[seat]} · ${rank ? `第 ${rank} 名` : `已抵达 ${arrived} / 4`}</small>
         </div>
         <span class="pstate ${rank || p.connected || p.isBot ? '' : 'off'}">${
           rank
@@ -222,8 +223,8 @@ function renderPlayers() {
                   : '离线'
         }</span>
         ${
-          state.phase === 'lobby' && p.isBot
-            ? `<button type="button" class="bot-remove" data-remove-bot="${seat}" title="移除 ${escapeHtml(p.name)}" aria-label="移除电脑">×</button>`
+          state.phase === 'lobby'
+            ? `<button type="button" class="bot-remove" data-remove-player="${seat}" title="${p.isBot ? '移除电脑' : '移出房间'}" aria-label="${p.isBot ? '移除电脑' : '移出房间'}">×</button>`
             : ''
         }
       </div>`);
@@ -245,13 +246,17 @@ function renderTurn() {
   }
   if (state.phase === 'finished') {
     const w = state.players.find((p) => p.seat === state.winner);
+    const teamMode = Boolean(state.rules && state.rules.teamMode && state.winnerTeam != null);
     banner.classList.add('active');
     dot.style.setProperty('--c', w ? SEAT_COLORS[w.seat] : '#fbbf24');
-    text.textContent = `${w ? w.name : SEAT_NAMES[state.winner] || ''} 获得胜利`;
+    text.textContent = teamMode
+      ? `${TEAM_NAMES[state.winnerTeam]} 获得胜利`
+      : `${w ? w.name : SEAT_NAMES[state.winner] || ''} 获得胜利`;
     return;
   }
   const p = state.players.find((x) => x.seat === state.turn);
-  const name = p ? p.name : SEAT_NAMES[state.turn] || '';
+  const teamTag = state.rules && state.rules.teamMode ? `（${TEAM_NAMES[state.turn % 2]}）` : '';
+  const name = p ? `${p.name}${teamTag}` : SEAT_NAMES[state.turn] || '';
   banner.classList.add('active');
   dot.style.setProperty('--c', SEAT_COLORS[state.turn] || '#8b9bb8');
   if (state.awaitingMove) text.textContent = `${name} 正在选择飞机`;
@@ -337,15 +342,22 @@ function renderControls() {
     const bots = state.players.filter((p) => p.isBot).length;
     const hasHuman = state.players.some((p) => !p.isBot);
     const botLimit = hasHuman ? 4 : 3;
+    const teamMode = Boolean(state.rules && state.rules.teamMode);
 
     addBotBtn.classList.remove('hidden');
     addBotBtn.disabled = state.players.length >= botLimit;
     startBtn.classList.remove('hidden');
 
-    startBtn.disabled = state.players.length < 2 || !hasHuman || startPending;
+    startBtn.disabled =
+      state.players.length < 2 ||
+      !hasHuman ||
+      startPending ||
+      (teamMode && state.players.length < 4);
     startBtn.textContent = startPending ? '正在开始…' : '开始游戏';
 
-    if (!hasHuman) {
+    if (teamMode && state.players.length < 4) {
+      hint.textContent = `2v2 组队需要 4 名玩家（当前 ${state.players.length}/4），点「加满电脑」补齐`;
+    } else if (!hasHuman) {
       hint.textContent =
         bots > 0 ? '电脑已就位，手机扫码加入后即可开始' : '手机扫码加入，或点「加满电脑」单人开局';
     } else if (state.players.length < 2) {
@@ -371,16 +383,25 @@ function renderWinner() {
   const w = state.players.find((p) => p.seat === state.winner);
   const name = w ? w.name : SEAT_NAMES[state.winner];
   const rankMode = state.rules && state.rules.endMode === 'rank';
+  const teamMode = Boolean(state.rules && state.rules.teamMode && state.winnerTeam != null);
   const order = state.finishOrder || [];
 
   overlay.classList.remove('hidden');
-  $('winnerName').textContent = rankMode ? `冠军 · ${name}` : `${name} 获胜`;
-  $('winnerSub').textContent = rankMode ? '比赛结束 · 最终排名' : '四架飞机全部抵达终点';
+  $('winnerName').textContent = teamMode
+    ? `${TEAM_NAMES[state.winnerTeam]} 获胜`
+    : rankMode
+      ? `冠军 · ${name}`
+      : `${name} 获胜`;
+  $('winnerSub').textContent = teamMode
+    ? '2v2 组队 · 队友全部抵达终点'
+    : rankMode
+      ? '比赛结束 · 最终排名'
+      : '四架飞机全部抵达终点';
   $('winnerName').style.setProperty('--win', SEAT_COLORS[state.winner] || '#fbbf24');
   $('winnerName').style.color = SEAT_COLORS[state.winner] || '#fbbf24';
 
   const ranksEl = $('winnerRanks');
-  if (rankMode && order.length) {
+  if (!teamMode && rankMode && order.length) {
     ranksEl.classList.remove('hidden');
     ranksEl.innerHTML = order
       .map((seat, i) => {
@@ -422,6 +443,13 @@ function renderRules() {
 
   const endMode = r.endMode === 'rank' ? 'rank' : 'first';
   const botLevel = ['easy', 'normal', 'hard'].includes(r.botLevel) ? r.botLevel : 'normal';
+  $('ruleTeam').checked = Boolean(r.teamMode);
+  $('endModeBlock').classList.toggle('disabled', Boolean(r.teamMode));
+  $('endModeBlock')
+    .querySelectorAll('button')
+    .forEach((b) => {
+      b.disabled = Boolean(r.teamMode);
+    });
   $('segEndMode')
     .querySelectorAll('button')
     .forEach((b) => b.classList.toggle('on', b.dataset.value === endMode));
@@ -559,10 +587,13 @@ $('addBotBtn').addEventListener('click', async () => {
 });
 
 $('players').addEventListener('click', async (e) => {
-  const btn = e.target.closest('[data-remove-bot]');
+  const btn = e.target.closest('[data-remove-player]');
   if (!btn || btn.disabled) return;
+  const seat = Number(btn.dataset.removePlayer);
+  const p = state && state.players.find((x) => x.seat === seat);
+  if (p && !p.isBot && !window.confirm(`确定把「${p.name}」移出房间吗？`)) return;
   btn.disabled = true;
-  const res = await emitAck('board:removeBot', { seat: Number(btn.dataset.removeBot) });
+  const res = await emitAck('board:removePlayer', { seat });
   if (res.error) {
     toast(res.error);
     btn.disabled = false;
@@ -576,12 +607,13 @@ async function saveRules() {
     weather: $('ruleWeather').checked,
     stackMove: $('ruleStack').checked,
     takeoffFive: $('ruleFive').checked,
+    teamMode: $('ruleTeam').checked,
     endMode: endBtn ? endBtn.dataset.value : 'first',
     botLevel: botBtn ? botBtn.dataset.value : 'normal',
   });
   if (res.error) toast(res.error);
 }
-['ruleWeather', 'ruleStack', 'ruleFive'].forEach((id) => {
+['ruleWeather', 'ruleStack', 'ruleFive', 'ruleTeam'].forEach((id) => {
   $(id).addEventListener('change', saveRules);
 });
 

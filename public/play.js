@@ -2,7 +2,7 @@
 
 /* global io, FlyChess */
 
-const { SEAT_COLORS, SEAT_NAMES, posLabel, escapeHtml } = FlyChess;
+const { SEAT_COLORS, SEAT_NAMES, TEAM_NAMES, posLabel, escapeHtml } = FlyChess;
 
 const socket = io();
 
@@ -254,16 +254,27 @@ function renderStatus(me) {
   let color = SEAT_COLORS[me.seat];
 
   if (state.phase === 'lobby') {
-    title = `已加入 · ${SEAT_NAMES[me.seat]}`;
+    const teamMode = Boolean(state.rules && state.rules.teamMode);
+    const teamTag = teamMode ? ` · ${TEAM_NAMES[me.seat % 2]}` : '';
+    title = `已加入 · ${SEAT_NAMES[me.seat]}${teamTag}`;
     const r = state.rules || {};
     const tags = [];
     if (r.weather) tags.push('天气格');
     if (r.stackMove) tags.push('叠子一起走');
     if (r.takeoffFive) tags.push('5 点起飞');
-    sub = `等大屏点「开始游戏」。规则：${tags.length ? tags.join(' · ') : '经典'}`;
+    if (r.teamMode) tags.push('组队 2v2');
+    let mateTag = '';
+    if (r.teamMode) {
+      const mateSeat = me.seat % 2 === 0 ? me.seat + 2 : me.seat - 2;
+      const mate = state.players.find((p) => p.seat === mateSeat);
+      if (mate) mateTag = ` · 队友：${mate.name}`;
+    }
+    sub = `等大屏点「开始游戏」。规则：${tags.length ? tags.join(' · ') : '经典'}${mateTag}`;
   } else if (myRank > 0) {
     title = `你已第 ${myRank} 名完赛`;
-    sub = '比赛继续中，等待其他玩家完赛…';
+    sub = state.rules && state.rules.teamMode
+      ? '等待队友完成比赛…'
+      : '比赛继续中，等待其他玩家完赛…';
     color = SEAT_COLORS[me.seat];
   } else if (myTurn) {
     color = SEAT_COLORS[me.seat];
@@ -429,18 +440,31 @@ function renderWinner() {
   const order = state.finishOrder || [];
   const myRank = order.indexOf(mySeatIndex) + 1;
   const rankMode = state.rules && state.rules.endMode === 'rank';
+  const teamMode = Boolean(state.rules && state.rules.teamMode && state.winnerTeam != null);
   const name = w ? w.name : SEAT_NAMES[state.winner] || '赢家';
 
-  $('winnerTitle').textContent = rankMode ? `冠军 · ${name}` : `${name} 获胜`;
-  $('winnerTitle').style.color = SEAT_COLORS[state.winner] || '#fbbf24';
-  $('winnerSub').textContent = myRank
-    ? `你获得第 ${myRank} 名`
-    : rankMode
-      ? '比赛结束'
-      : '四架飞机全部抵达终点';
+  if (teamMode) {
+    const myTeam = mySeatIndex == null ? -1 : mySeatIndex % 2;
+    $('winnerTitle').textContent = `${TEAM_NAMES[state.winnerTeam]} 获胜`;
+    $('winnerTitle').style.color = SEAT_COLORS[state.winnerTeam] || '#fbbf24';
+    $('winnerSub').textContent =
+      myTeam === state.winnerTeam
+        ? '你的队伍获胜！'
+        : myTeam >= 0
+          ? `你的队伍（${TEAM_NAMES[myTeam]}）惜败`
+          : '比赛结束';
+  } else {
+    $('winnerTitle').textContent = rankMode ? `冠军 · ${name}` : `${name} 获胜`;
+    $('winnerTitle').style.color = SEAT_COLORS[state.winner] || '#fbbf24';
+    $('winnerSub').textContent = myRank
+      ? `你获得第 ${myRank} 名`
+      : rankMode
+        ? '比赛结束'
+        : '四架飞机全部抵达终点';
+  }
 
   const ranksEl = $('phoneRanks');
-  if (rankMode && order.length) {
+  if (!teamMode && rankMode && order.length) {
     ranksEl.classList.remove('hidden');
     ranksEl.innerHTML = order
       .map((seat, i) => {
@@ -761,6 +785,15 @@ socket.on('connect', () => {
 });
 
 socket.on('game:state', onState);
+socket.on('player:kicked', (payload) => {
+  const code = (payload && payload.code) || roomCode;
+  if (code) store.del(pidKey(code));
+  joined = false;
+  playerId = null;
+  state = null;
+  alert('你已被房主移出房间');
+  location.replace('/play');
+});
 socket.on('disconnect', () => {
   if (joined) toast('连接断开，正在重连…');
 });

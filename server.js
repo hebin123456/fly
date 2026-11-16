@@ -312,20 +312,24 @@ io.on('connection', (socket) => {
     return reply({ ok: true, added });
   });
 
-  /* 大屏：移除电脑 */
-  socket.on('board:removeBot', (payload, ack) => {
+  /* 大屏：移除玩家（电脑或真人） */
+  socket.on('board:removePlayer', (payload, ack) => {
     const reply = typeof ack === 'function' ? ack : () => {};
     const room = roomOf(socket);
     if (!room) return reply({ error: '房间不存在' });
-    if (room.phase !== 'lobby') return reply({ error: '游戏已经开始，无法移除电脑' });
+    if (room.phase !== 'lobby') return reply({ error: '游戏已经开始，无法移除玩家' });
 
     const seat = Number(payload && payload.seat);
     const player = room.players.find((p) => p.seat === seat);
     if (!player) return reply({ error: '该座位没有玩家' });
-    if (!player.isBot) return reply({ error: '只能移除电脑' });
 
+    const kickedSocket = player.socketId ? io.sockets.sockets.get(player.socketId) : null;
     const name = player.name;
     G.removePlayer(room, seat);
+    if (kickedSocket) {
+      kickedSocket.data = {};
+      kickedSocket.emit('player:kicked', { code: room.code });
+    }
     G.pushLog(room, `${name} 已离开房间`, { type: 'leave', seat });
     broadcast(room);
     return reply({ ok: true });
@@ -343,6 +347,7 @@ io.on('connection', (socket) => {
       weather: Boolean(r.weather),
       stackMove: Boolean(r.stackMove),
       takeoffFive: Boolean(r.takeoffFive),
+      teamMode: Boolean(r.teamMode),
       endMode: r.endMode === 'rank' ? 'rank' : 'first',
       botLevel: ['easy', 'normal', 'hard'].includes(r.botLevel) ? r.botLevel : 'normal',
     };
@@ -358,6 +363,9 @@ io.on('connection', (socket) => {
     if (room.phase === 'playing') return reply({ error: '游戏已在进行中' });
     if (room.players.length < 2) return reply({ error: '至少需要 2 名玩家，或点「加满电脑」' });
     if (!room.players.some((p) => !p.isBot)) return reply({ error: '至少需要 1 名真人玩家' });
+    if (room.rules.teamMode && room.players.length < G.MAX_PLAYERS) {
+      return reply({ error: '2v2 组队需要 4 名玩家，点「加满电脑」补齐' });
+    }
 
     G.startGame(room);
     broadcast(room);

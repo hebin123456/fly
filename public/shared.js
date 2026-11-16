@@ -5,6 +5,7 @@
   const SEAT_COLORS = ['#f59e0b', '#3b82f6', '#ef4444', '#22c55e'];
   const SEAT_LIGHT = ['#fde68a', '#bfdbfe', '#fecaca', '#bbf7d0'];
   const SEAT_NAMES = ['黄队', '蓝队', '红队', '绿队'];
+  const TEAM_NAMES = ['黄红队', '蓝绿队'];
   const COORD_MAX = 600;
 
   // 52 格主航道，顺时针；黄队从索引 0 的起飞格出发，各队起点间隔 13 格
@@ -97,6 +98,7 @@
     SEAT_COLORS,
     SEAT_LIGHT,
     SEAT_NAMES,
+    TEAM_NAMES,
     COORD_MAX,
     RING,
     HOME,
