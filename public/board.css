@@ -557,6 +557,28 @@ body.no-anim .token { transition: none; animation: none; }
   border-color: rgba(251, 191, 36, 0.3);
   background: linear-gradient(90deg, rgba(251, 191, 36, 0.1), rgba(255, 255, 255, 0.03));
 }
+.bot-remove {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  margin-left: 2px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: #8b9bb8;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: 0.15s ease;
+}
+.bot-remove:hover {
+  color: #fecaca;
+  border-color: rgba(248, 113, 113, 0.45);
+  background: rgba(248, 113, 113, 0.14);
+}
+.bot-remove:disabled { opacity: 0.45; cursor: wait; }
 .player-row.active {
   background: linear-gradient(90deg, color-mix(in srgb, var(--c) 18%, transparent), rgba(255, 255, 255, 0.03));
   border-color: color-mix(in srgb, var(--c) 42%, transparent);

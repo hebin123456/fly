@@ -293,7 +293,13 @@ io.on('connection', (socket) => {
     // 没有真人时留 1 个座位给手机扫码加入
     const limit = humans > 0 ? G.MAX_PLAYERS : G.MAX_PLAYERS - 1;
     while (room.players.length < limit) {
-      const botNo = room.players.filter((p) => p.isBot).length + 1;
+      const botNo =
+        Math.max(
+          0,
+          ...room.players
+            .filter((p) => p.isBot)
+            .map((p) => Number(String(p.name).replace(/\D/g, '')) || 0)
+        ) + 1;
       const bot = G.addPlayer(room, { name: `电脑 ${botNo}`, isBot: true });
       if (!bot) break;
       G.pushLog(room, `${bot.name} 加入房间（${G.COLOR_NAMES[bot.color]}）`, {
@@ -304,6 +310,25 @@ io.on('connection', (socket) => {
     }
     broadcast(room);
     return reply({ ok: true, added });
+  });
+
+  /* 大屏：移除电脑 */
+  socket.on('board:removeBot', (payload, ack) => {
+    const reply = typeof ack === 'function' ? ack : () => {};
+    const room = roomOf(socket);
+    if (!room) return reply({ error: '房间不存在' });
+    if (room.phase !== 'lobby') return reply({ error: '游戏已经开始，无法移除电脑' });
+
+    const seat = Number(payload && payload.seat);
+    const player = room.players.find((p) => p.seat === seat);
+    if (!player) return reply({ error: '该座位没有玩家' });
+    if (!player.isBot) return reply({ error: '只能移除电脑' });
+
+    const name = player.name;
+    G.removePlayer(room, seat);
+    G.pushLog(room, `${name} 已离开房间`, { type: 'leave', seat });
+    broadcast(room);
+    return reply({ ok: true });
   });
 
   /* 大屏：玩法设置（仅开局前） */

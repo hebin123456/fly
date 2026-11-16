@@ -221,6 +221,11 @@ function renderPlayers() {
                   ? '在线'
                   : '离线'
         }</span>
+        ${
+          state.phase === 'lobby' && p.isBot
+            ? `<button type="button" class="bot-remove" data-remove-bot="${seat}" title="移除 ${escapeHtml(p.name)}" aria-label="移除电脑">×</button>`
+            : ''
+        }
       </div>`);
   }
   wrap.innerHTML = rows.join('');
@@ -346,7 +351,7 @@ function renderControls() {
     } else if (state.players.length < 2) {
       hint.textContent = '再拉一位朋友，或点「加满电脑」单人开局';
     } else if (bots > 0) {
-      hint.textContent = `人机对战 · ${bots} 个电脑，点击开始`;
+      hint.textContent = `人机对战 · ${bots} 个电脑，点击开始（点 × 可移除）`;
     } else {
       hint.textContent = '人齐了，点击开始（最多 4 人）';
     }
@@ -551,6 +556,17 @@ $('addBotBtn').addEventListener('click', async () => {
   if (!state || state.phase !== 'lobby') return;
   const res = await emitAck('board:addBots', {});
   if (res.error) toast(res.error);
+});
+
+$('players').addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-remove-bot]');
+  if (!btn || btn.disabled) return;
+  btn.disabled = true;
+  const res = await emitAck('board:removeBot', { seat: Number(btn.dataset.removeBot) });
+  if (res.error) {
+    toast(res.error);
+    btn.disabled = false;
+  }
 });
 
 async function saveRules() {
